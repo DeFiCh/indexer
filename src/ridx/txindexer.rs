@@ -1,79 +1,8 @@
 use crate::db::{encode_height, rocks_open_db, BlockStore};
+use crate::dfiutils::{fold_addr_val_map, get_txin_addr_val_list, get_txout_addr_val_list};
 use crate::lang::{Error, Result};
-use crate::models::{Transaction, Vin, VinStandard, Vout};
 use rust_rocksdb::WriteBatch;
-use std::collections::HashMap;
-use tracing::{error, info, warn};
-
-fn get_txin_addr_val_list(tx_ins: &[Vin], block_store: &BlockStore) -> Result<Vec<(String, f64)>> {
-    let map_fn = |x: VinStandard| {
-        let tx_id = x.txid;
-        let tx = block_store.get_tx_from_hash(&tx_id);
-        let tx = tx?.ok_or_else(|| {
-            error!("tx hash not found: {}", &tx_id);
-            let z = block_store.get_block_for_tx(&tx_id);
-            if z.is_err() {
-                error!("tx block err");
-            } else {
-                let z = z.unwrap();
-                if let Some(b) = z {
-                    warn!("tx block found however: {}", b.hash);
-                } else {
-                    error!("block not found either");
-                }
-            }
-            Error::from(format!("tx hash not found: {}", &tx_id))
-        })?;
-        let utxo = tx
-            .vout
-            .iter()
-            .find(|v| v.n == x.vout)
-            .ok_or_else(|| Error::from(format!("tx vout not found: {}", &tx_id)))?;
-        let val = utxo.value;
-        let addr = if let Some(addrs) = &utxo.script_pub_key.addresses {
-            addrs.join("+")
-        } else {
-            return Err(Error::from(format!("input with no addr found: {}", tx_id)));
-        };
-        Ok((addr, val))
-    };
-
-    tx_ins
-        .iter()
-        .filter_map(Vin::assume_standard)
-        .map(map_fn)
-        .collect()
-}
-
-fn get_txout_addr_val_list(tx: &Transaction, tx_outs: &[Vout]) -> Vec<(String, f64)> {
-    tx_outs
-        .iter()
-        .map(|utxo| {
-            let val = utxo.value;
-            let addr = if let Some(addrs) = &utxo.script_pub_key.addresses {
-                if addrs.len() > 1 {
-                    warn!("multiple addresses found: {}", tx.txid);
-                }
-                // Multi-sig, we just join it with a +
-                addrs.join("+")
-            } else {
-                "x".to_owned()
-            };
-            (addr, val)
-        })
-        .collect::<Vec<_>>()
-}
-
-fn fold_addr_val_map(addr_val_list: &[(String, f64)]) -> HashMap<String, f64> {
-    addr_val_list
-        .iter()
-        .fold(HashMap::with_capacity(addr_val_list.len()), |mut m, v| {
-            m.entry(v.0.clone())
-                .and_modify(|x| *x += v.1)
-                .or_insert(v.1);
-            m
-        })
-}
+use tracing::{error, info};
 
 pub fn index_tx_data() -> Result<()> {
     let db = rocks_open_db(None)?;

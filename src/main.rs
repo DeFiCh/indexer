@@ -33,6 +33,7 @@ fn run(args: Args) -> Result<()> {
         true => None,
         false => Some(args.defid_log_path.as_str()),
     };
+    let tx_graph_table = args.graph_table;
     let defid_log_matcher = args.defid_log_matcher.as_str();
 
     let start_height = args.start_height;
@@ -220,6 +221,69 @@ fn run(args: Args) -> Result<()> {
                 &swap_to,
                 &swap_amt,
             ])?;
+
+            if tx_graph_table {
+                let tx_in_addrs = dfiutils::get_txin_addr_val_list(&tx.vin, &block_store)?;
+                let tx_out_addrs = dfiutils::get_txout_addr_val_list(&tx, &tx.vout);
+                let txid = &tx.txid;
+
+                let (tx_in_dvm_addrs, tx_out_dvm_addrs): (Vec<_>, Vec<_>) = dvm_addrs
+                    .iter()
+                    .cloned()
+                    .partition(|addr| tx_in_addrs.iter().any(|(in_addr, _)| in_addr == addr));
+
+                let mut changeset = HashMap::new();
+
+                for (out_addr, _) in tx_out_addrs.iter().filter(|x| x.0 != "x") {
+                    for (in_addr, _) in tx_in_addrs.iter() {
+                        let k = [in_addr.clone(), txid.clone(), out_addr.clone()];
+                        changeset.insert(k, 0);
+                    }
+                }
+
+                let mut dmod = false;
+                for out_addr in tx_out_dvm_addrs {
+                    for in_addr in tx_in_dvm_addrs.iter() {
+                        let k = [out_addr.clone(), txid.clone(), in_addr.clone()];
+                        let v = changeset.get_mut(&k);
+                        if let Some(v) = v {
+                            // we set to DVM + UTXO
+                            if *v == 0 {
+                                *v = 2;
+                                dmod = true;
+                            }
+                        } else {
+                            // we set this with DVM only
+                            changeset.insert(k, 1);
+                            dmod = true;
+                        }
+                    }
+                }
+
+                if !dmod && !dvm_addrs.is_empty() {
+                    // we've not added any dvm addrs despite having them
+                    // could imply dvm in_addrs are also the dvm_out_addrs
+                    let out_addrs = tx_in_dvm_addrs;
+
+                    for (in_addr, _) in tx_in_addrs.iter() {
+                        for out_addr in out_addrs.iter() {
+                            let k = [in_addr.clone(), txid.clone(), out_addr.clone()];
+                            let v = changeset.get_mut(&k);
+                            if let Some(v) = v {
+                                if *v == 0 {
+                                    *v = 2;
+                                }
+                            } else {
+                                changeset.insert(k, 1);
+                            }
+                        }
+                    }
+                }
+
+                for ([in_addr, txid, out_addr], v) in changeset {
+                    stmts[2].execute(rusqlite::params![in_addr, txid, out_addr, v])?;
+                }
+            }
         }
 
         if i % 10000 == 0 {

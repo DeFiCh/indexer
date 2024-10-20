@@ -229,6 +229,15 @@ fn run(args: Args) -> Result<()> {
                 let tx_out_addrs = dfiutils::get_txout_addr_val_list(&tx, &tx.vout);
                 let txid = &tx.txid;
 
+                // DVM addresses are parsed for all matching addresses inside the
+                // DVM data. There is no clean in and out: this requires specific
+                // knowledge of each message and there's no clear convention of this.
+                // So instead, we workaround this as we know that if tx in and dvm addr
+                // is the same, they were _likely_ source.
+                // We partition these out first. Later we iterate through the
+                // in dvm addresses as well in case no other edges were added. This
+                // should cover the case where they were also the dest.
+
                 let (tx_in_dvm_addrs, tx_out_dvm_addrs): (Vec<_>, Vec<_>) = dvm_addrs
                     .iter()
                     .cloned()

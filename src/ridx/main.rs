@@ -9,6 +9,9 @@ mod lang;
 #[path = "../models.rs"]
 mod models;
 
+#[path = "../args.rs"]
+mod args;
+
 mod blockindexer;
 mod grapher;
 mod txindexer;
@@ -16,6 +19,7 @@ mod txindexer;
 use crate::lang::Result;
 
 use std::env;
+use clap::Parser;
 use tracing::info;
 
 fn main() -> Result<()> {
@@ -23,12 +27,14 @@ fn main() -> Result<()> {
 
     tracing_subscriber::fmt().compact().with_ansi(false).init();
 
+    let args = args::Args::parse();
+
     let mode = 3;
     match mode {
         0 => blockindexer::check_db_index()?,
         1 => blockindexer::index_from_cli()?,
         2 => txindexer::index_tx_data()?,
-        3 => grapher::graph_it()?,
+        3 => grapher::graph_it(args)?,
         _ => info!("error"),
     };
 

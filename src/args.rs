@@ -27,6 +27,8 @@ pub struct Args {
     pub sqlite_path: String,
     #[arg(long, default_value = "data/debug.log")]
     pub defid_log_path: String,
+    #[arg(long, default_value = "data/logs")]
+    pub graph_logs_path: String,
     #[arg(long, default_value = "claim_tx")]
     pub defid_log_matcher: String,
     #[arg(short = 's', long, default_value_t = 0)]

@@ -64,6 +64,8 @@ fn run(args: Args) -> Result<()> {
                 }
             }
         }
+
+        info!("icx log file entries: {}", icx_data_map.len());
     }
 
     let rdb = rocks_open_db(rocks_db_path)?;

@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use tracing::info;
 
+use crate::args::Args;
 use crate::db::{encode_height, rocks_open_db, BlockStore};
 use crate::dfiutils::extract_dfi_addresses;
 use crate::lang::{Error, Result};
@@ -35,9 +36,9 @@ impl std::fmt::Display for TxEdge {
     }
 }
 
-pub fn graph_it() -> Result<()> {
-    let logs_dir = "data/logs";
-    std::fs::create_dir_all(logs_dir)?;
+pub fn graph_it(args: Args) -> Result<()> {
+    let logs_dir = args.graph_logs_path;
+    std::fs::create_dir_all(&logs_dir)?;
 
     let db = rocks_open_db(None)?;
     let block_store = BlockStore::new(&db)?;

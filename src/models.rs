@@ -128,7 +128,7 @@ pub struct ScriptPubKey {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ICXData {
+pub struct IcxLogData {
     pub order_tx: String,
     pub offer_tx: String,
     pub dfchtlc_tx: String,
@@ -137,8 +137,8 @@ pub struct ICXData {
     pub amount: String,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ICXDataTxsOnly<'a> {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IcxTxSet<'a> {
     pub order_tx: &'a str,
     pub offer_tx: &'a str,
     pub dfchtlc_tx: &'a str,

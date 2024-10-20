@@ -1,22 +1,24 @@
 #![feature(error_generic_member_access)]
 
 mod args;
+mod db;
+mod dfiutils;
 mod lang;
 mod models;
-mod utils;
 
 use args::Args;
 use clap::Parser;
+use db::{
+    encode_height, rocks_open_db, sqlite_begin_tx, sqlite_commit_and_begin_tx, sqlite_commit_tx,
+    sqlite_get_stmts, sqlite_init_db, BlockStore,
+};
+use dfiutils::{extract_dfi_addresses, token_id_to_symbol_maybe};
 use lang::OptionExt;
 use lang::{Error, Result};
-use models::{ICXData, ICXDataTxsOnly, TxType};
+use models::{IcxLogData, IcxTxSet, TxType};
 use std::collections::HashMap;
 use std::{error::request_ref, io::BufRead};
 use tracing::{error, info};
-use utils::{
-    encode_height, extract_dfi_addresses, rocks_open_db, sqlite_begin_tx,
-    sqlite_commit_and_begin_tx, sqlite_get_stmts, sqlite_init_db, BlockStore,
-};
 
 fn run(args: Args) -> Result<()> {
     let rocks_db_path = match args.src_rocks_db_path.is_empty() {
@@ -41,7 +43,7 @@ fn run(args: Args) -> Result<()> {
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, std::sync::Arc::clone(&quit))?;
 
-    let mut icx_data_map = HashMap::<String, ICXData>::default();
+    let mut icx_data_map = HashMap::<String, IcxLogData>::default();
 
     if let Some(defid_log_path) = defid_log_path {
         let file = std::fs::File::open(defid_log_path)?;
@@ -53,7 +55,7 @@ fn run(args: Args) -> Result<()> {
                 // parse the line only on the valid json
                 if let Some(json_start) = line.find('{') {
                     let json_str = &line[json_start..];
-                    if let Ok(icx_data) = serde_json::from_str::<ICXData>(json_str) {
+                    if let Ok(icx_data) = serde_json::from_str::<IcxLogData>(json_str) {
                         icx_data_map.insert(icx_data.claim_tx.clone(), icx_data);
                     } else {
                         error!("json parse failure: {}", json_str);
@@ -144,12 +146,12 @@ fn run(args: Args) -> Result<()> {
                 let dvm_data = tx.vm.as_ref().map(|x| x.msg.to_string()).unwrap();
                 dvm_addrs = extract_dfi_addresses(&dvm_data);
             }
-            let mut icx_claim_data: Option<ICXDataTxsOnly> = None;
-            let mut icx_addr: String = "".to_owned();
-            let mut icx_amt: String = "".to_owned();
-            let mut swap_from: String = "".to_owned();
-            let mut swap_to: String = "".to_owned();
-            let mut swap_amt: String = "".to_owned();
+            let mut icx_claim_data: Option<IcxTxSet> = None;
+            let mut icx_addr: String = empty();
+            let mut icx_amt: String = empty();
+            let mut swap_from: String = empty();
+            let mut swap_to: String = empty();
+            let mut swap_amt: String = empty();
 
             match tx_type {
                 //  Some(TxType::CompositeSwap) not enabled < 2m.
@@ -165,7 +167,7 @@ fn run(args: Args) -> Result<()> {
                 Some(TxType::ICXSubmitEXTHTLC) => {
                     let icx_data = icx_data_map.get(tx.txid.as_str());
                     if let Some(icx_data) = icx_data {
-                        icx_claim_data = Some(ICXDataTxsOnly {
+                        icx_claim_data = Some(IcxTxSet {
                             order_tx: &icx_data.order_tx,
                             claim_tx: &icx_data.claim_tx,
                             offer_tx: &icx_data.offer_tx,
@@ -182,23 +184,23 @@ fn run(args: Args) -> Result<()> {
 
             let tx_type_str = tx_type.clone().unwrap_or(TxType::Unknown).to_string();
             let dvm_addrs_json = if dvm_addrs.is_empty() {
-                "".to_owned()
+                empty()
             } else {
                 serde_json::to_string(&dvm_addrs)?
             };
             let tx_in_json = if tx_data.tx_in.is_empty() {
-                "".to_owned()
+                empty()
             } else {
                 serde_json::to_string(&tx_data.tx_in)?
             };
             let tx_out_json = if tx_data.tx_out.is_empty() {
-                "".to_owned()
+                empty()
             } else {
                 serde_json::to_string(&tx_out)?
             };
             let tx_json = serde_json::to_string(&tx)?;
             let icx_claim_data = if icx_claim_data.is_none() {
-                "".to_owned()
+                empty()
             } else {
                 serde_json::to_string(&icx_claim_data.unwrap())?
             };
@@ -231,10 +233,16 @@ fn run(args: Args) -> Result<()> {
     }
 
     info!("flushing db");
-    sqlite_commit_and_begin_tx(&sconn)?;
+    sqlite_commit_tx(&sconn)?;
 
     info!("done");
     Ok(())
+}
+
+// Just a short convenience alias for internal use.
+fn empty() -> String {
+    static EMPTY_STR: String = String::new();
+    EMPTY_STR.clone()
 }
 
 fn main_fallible() -> Result<()> {
@@ -255,20 +263,5 @@ fn main() {
         if let Some(bt) = bt {
             error!("{bt}");
         }
-    }
-}
-
-fn token_id_to_symbol_maybe(token_id: &str) -> &str {
-    match token_id {
-        "0" => "dfi",
-        "1" => "eth",
-        "2" => "btc",
-        "3" => "usdt",
-        "7" => "doge",
-        "9" => "ltc",
-        "11" => "bch",
-        "13" => "usdc",
-        "15" => "dusd",
-        _ => token_id,
     }
 }

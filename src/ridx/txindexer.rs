@@ -1,6 +1,6 @@
+use crate::db::{encode_height, rocks_open_db, BlockStore};
 use crate::lang::{Error, Result};
 use crate::models::{Transaction, Vin, VinStandard, Vout};
-use crate::utils::{encode_height, rocks_open_db, BlockStore};
 use rust_rocksdb::WriteBatch;
 use std::collections::HashMap;
 use tracing::{error, info, warn};

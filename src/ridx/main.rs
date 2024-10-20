@@ -1,11 +1,13 @@
 #![feature(error_generic_member_access)]
 
+#[path = "../db.rs"]
+mod db;
+#[path = "../dfiutils.rs"]
+mod dfiutils;
 #[path = "../lang.rs"]
 mod lang;
 #[path = "../models.rs"]
 mod models;
-#[path = "../utils.rs"]
-mod utils;
 
 mod blockindexer;
 mod grapher;

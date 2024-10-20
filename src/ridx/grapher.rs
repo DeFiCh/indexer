@@ -4,9 +4,19 @@ use std::collections::{HashMap, HashSet};
 
 use tracing::info;
 
+use crate::db::{encode_height, rocks_open_db, BlockStore};
+use crate::dfiutils::extract_dfi_addresses;
 use crate::lang::{Error, Result};
 use crate::models::TxType;
-use crate::utils::{encode_height, extract_dfi_addresses, rocks_open_db, BlockStore};
+
+// Reduce graph with:
+//
+// for x in `seq 0 100000 2000000`; do
+//  gvpr -c "N[$.degree==0]{delete(root, $)}" graph-${x}.dot > graph-${x}.cleaned.dot; # clean up nodes with no edges
+//  cat graph-${x}.cleaned.dot | sed 's/ |.*\"\];/\"\];/' > graph-${x}.minimized.dot;  # remove edge labels
+//  sfdp -x -Goverlap=scale -Tpdf graph-${x}.minimized.dot > ${x}.pdf; # render to pdf
+// done
+//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TxEdge {
@@ -231,12 +241,3 @@ pub fn graph_it() -> Result<()> {
     std::fs::write(format!("{}/graph-{}.dot", logs_dir, iz), format!("{}", d))?;
     Ok(())
 }
-
-// Reduce graph with:
-//
-// for x in `seq 0 100000 2000000`; do
-//  gvpr -c "N[$.degree==0]{delete(root, $)}" graph-${x}.dot > graph-${x}.cleaned.dot; # clean up nodes with no edges
-//  cat graph-${x}.cleaned.dot | sed 's/ |.*\"\];/\"\];/' > graph-${x}.minimized.dot;  # remove edge labels
-//  sfdp -x -Goverlap=scale -Tpdf graph-${x}.minimized.dot > ${x}.pdf; # render to pdf
-// done
-//

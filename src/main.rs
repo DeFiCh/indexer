@@ -167,7 +167,7 @@ fn run(args: Args) -> Result<()> {
                     swap_to = token_id_to_symbol_maybe(to_token).to_string();
                     swap_amt = format!("{:.9}", amt);
                 }
-                Some(TxType::ICXSubmitEXTHTLC) => {
+                Some(TxType::ICXClaimDFCHTLC) => {
                     let icx_data = icx_data_map.get(tx.txid.as_str());
                     if let Some(icx_data) = icx_data {
                         icx_claim_data = Some(IcxTxSet {

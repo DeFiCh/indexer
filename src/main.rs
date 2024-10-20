@@ -33,7 +33,7 @@ fn run(args: Args) -> Result<()> {
         true => None,
         false => Some(args.defid_log_path.as_str()),
     };
-    let tx_graph_table = args.graph_table;
+    let tx_graph_table = args.graph_table.unwrap();
     let defid_log_matcher = args.defid_log_matcher.as_str();
 
     let start_height = args.start_height;

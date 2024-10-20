@@ -3,7 +3,7 @@
 Indexer for offline analysis of on-chain data.
 
 Run with:
-  - `cargo run --release --bin indexer -- --help`
+  - `cargo run --release --bin dfi_indexer -- --help`
   - `cargo run --release --bin ridx -- --help` (Currently needed for most of the pipleline)
 
 Sequences:

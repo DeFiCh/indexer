@@ -1,5 +1,5 @@
 [package]
-name = "dfi_index"
+name = "dfi_indexer"
 version = "0.1.0"
 edition = "2021"
 

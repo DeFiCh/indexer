@@ -1,8 +1,9 @@
 use rust_rocksdb::WriteBatch;
 use tracing::info;
 
+use crate::db::{encode_height, rocks_compact_db, rocks_open_db, BlockStore};
+use crate::dfiutils::CliDriver;
 use crate::lang::{Error, Result};
-use crate::utils::{encode_height, rocks_compact_db, rocks_open_db, BlockStore, CliDriver};
 
 pub fn index_from_cli() -> Result<()> {
     let mut cli = CliDriver::new();

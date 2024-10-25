@@ -1,4 +1,4 @@
-use crate::db::{encode_height, rocks_open_db, BlockStore};
+use crate::db::{encode_height, rocks_open_db, RocksBlockStore};
 use crate::dfiutils::{fold_addr_val_map, get_txin_addr_val_list, get_txout_addr_val_list};
 use crate::lang::{Error, Result};
 use rust_rocksdb::WriteBatch;
@@ -6,7 +6,7 @@ use tracing::{error, info};
 
 pub fn index_tx_data() -> Result<()> {
     let db = rocks_open_db(None)?;
-    let block_store = BlockStore::new(&db)?;
+    let block_store = RocksBlockStore::new(&db)?;
     let cf_tx = db.cf_handle("tx").ok_or(Error::from("cf handle"))?;
     let start_block_num = 4_100_000;
 

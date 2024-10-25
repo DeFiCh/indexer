@@ -141,7 +141,7 @@ pub fn token_id_to_symbol_maybe(token_id: &str) -> &str {
 
 pub fn get_txin_addr_val_list(
     tx_ins: &[Vin],
-    block_store: &BlockStore,
+    block_store: &dyn BlockStore,
 ) -> Result<Vec<(String, f64)>> {
     let map_fn = |x: VinStandard| {
         let tx_id = x.txid;

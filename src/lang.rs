@@ -31,6 +31,8 @@ pub enum Error {
     Io(#[from] std::io::Error, std::backtrace::Backtrace),
     #[error("sqlite error: {0}")]
     SQLite(#[from] rusqlite::Error, std::backtrace::Backtrace),
+    #[error("clap error: {0}")]
+    Clap(#[from] clap::Error),
     #[error(transparent)]
     Anyhow(
         #[from]

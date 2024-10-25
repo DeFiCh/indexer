@@ -1,14 +1,14 @@
 use rust_rocksdb::WriteBatch;
 use tracing::info;
 
-use crate::db::{encode_height, rocks_compact_db, rocks_open_db, BlockStore};
+use crate::db::{encode_height, rocks_compact_db, rocks_open_db, RocksBlockStore};
 use crate::dfiutils::CliDriver;
 use crate::lang::{Error, Result};
 
 pub fn index_from_cli() -> Result<()> {
     let mut cli = CliDriver::new();
     let db = rocks_open_db(None)?;
-    let block_store = BlockStore::new(&db)?;
+    let block_store = RocksBlockStore::new(&db)?;
 
     let mut i = 4_100_000;
     let height = cli.get_block_count()?;
@@ -91,7 +91,7 @@ pub fn index_from_cli() -> Result<()> {
 
 pub fn check_db_index() -> Result<()> {
     let db = rocks_open_db(None)?;
-    let block_store = BlockStore::new(&db)?;
+    let block_store = RocksBlockStore::new(&db)?;
 
     for i in 0..4_100_000 {
         let b = block_store.get_block_from_height(i)?;

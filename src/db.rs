@@ -12,25 +12,31 @@ pub fn sqlite_init_db(path: Option<&str>) -> Result<Connection> {
     let path = path.unwrap_or("data/index.sqlite");
     let conn = rusqlite::Connection::open(path)?;
 
-    conn.execute_batch("pragma locking_mode=exclusive").ext()?;
-    conn.execute_batch("pragma journal_mode=wal2").ext()?;
-    conn.execute_batch("pragma secure_delete=off").ext()?;
-    conn.execute_batch("pragma synchronous=normal").ext()?;
-    conn.execute_batch("pragma analysis_limit=1000").ext()?; // recommended
-    conn.execute_batch("pragma wal_autocheckpoint=1000").ext()?; // default
-    conn.execute_batch("pragma page_size=4096").ext()?; // default
-    conn.execute_batch("pragma auto_vacuum=0").ext()?; // 0| none / 1| full / 2|incremental
-    conn.execute_batch("pragma journal_size_limit=67108864")
-        .ext()?; // 1024 * 1024 * 64 // default: -1
-    conn.execute_batch("pragma wal_checkpoint(truncate)")
-        .ext()?; // let's restart the wal
+    let pragmas = [
+        // "pragma locking_mode=exclusive",
+        "pragma journal_mode=wal",
+        "pragma secure_delete=off",
+        "pragma synchronous=normal",
+        "pragma analysis_limit=1000",         // recommended
+        "pragma wal_autocheckpoint=1000",     // default
+        "pragma page_size=4096",              // default
+        "pragma auto_vacuum=0",               // 0| none / 1| full / 2|incremental
+        "pragma journal_size_limit=67108864", // 1024 * 1024 * 64 // default: -1
+        "pragma wal_checkpoint(truncate)",    // let's restart the wal
+    ];
+
+    for pragma in &pragmas {
+        conn.execute_batch(pragma).ext()?;
+    }
 
     // height is coalesced into rowid, so height is stored in the btree
     // and rest is stored on the leaf data page.
+    // Note: We add the unique index directly in table to ensure lookups
+    // can happen while indexing.
     conn.execute(
         "CREATE TABLE IF NOT EXISTS blocks (
             height INTEGER PRIMARY KEY,
-            hash TEXT NOT NULL,
+            hash TEXT UNIQUE NOT NULL,
             data TEXT NOT NULL
         )",
         [],
@@ -71,6 +77,60 @@ pub fn sqlite_init_db(path: Option<&str>) -> Result<Connection> {
     )?;
 
     Ok(conn)
+}
+
+pub fn sqlite_create_index_factory(
+    conn: &rusqlite::Connection,
+) -> impl Iterator<Item = (&str, impl Fn() -> rusqlite::Result<()> + '_)> {
+    let indexes = vec![
+        // Pre-added
+        // (
+        //     "CREATE INDEX IF NOT EXISTS idx_blocks_hash ON blocks (hash)",
+        //     "idx_blocks_hash",
+        // ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_txs_height ON txs (height)",
+            "idx_txs_height",
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_txs_tx_type ON txs (tx_type)",
+            "idx_txs_tx_type",
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_txs_icx_addr ON txs (icx_addr)",
+            "idx_txs_icx_addr",
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_txs_swap_from ON txs (swap_from)",
+            "idx_txs_swap_from",
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_txs_swap_to ON txs (swap_to)",
+            "idx_txs_swap_to",
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_tx_graph_tx_in_addr ON tx_graph (tx_in_addr)",
+            "idx_tx_graph_tx_in_addr",
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_tx_graph_tx_out_addr ON tx_graph (tx_out_addr)",
+            "idx_tx_graph_tx_out_addr",
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_tx_graph_txid ON tx_graph (txid)",
+            "idx_tx_graph_txid",
+        ),
+    ];
+
+    let mut itr = indexes.into_iter();
+
+    std::iter::from_fn(move || {
+        if let Some((query, name)) = itr.next() {
+            let closure = Box::new(|| conn.execute(query, []).map(|_| ()));
+            return Some((name, closure));
+        }
+        None
+    })
 }
 
 pub fn sqlite_get_stmts(conn: &rusqlite::Connection) -> Result<[CachedStatement<'_>; 3]> {
@@ -180,9 +240,74 @@ pub fn encode_height(height: i64) -> String {
     format!("{is_neg}{length:x}{height_abs}")
 }
 
-pub struct BlockStore<'a> {
-    db: &'a DB,
-    cf_tx: &'a ColumnFamily,
+pub trait BlockStore {
+    fn get_block_from_hash(&self, hash: &str) -> Result<Option<Block>>;
+    fn get_block_hash(&self, height: i64) -> Result<Option<String>>;
+    fn get_block_hash_for_tx(&self, tx_hash: &str) -> Result<Option<String>>;
+    fn get_block_for_tx(&self, tx_hash: &str) -> Result<Option<Block>>;
+    fn get_block_from_height(&self, height: i64) -> Result<Option<Block>>;
+    fn get_tx_from_hash(&self, hash: &str) -> Result<Option<Transaction>>;
+    fn get_tx_addr_data_from_hash(&self, hash: &str) -> Result<Option<TxAddrData>>;
+}
+
+impl<'a> BlockStore for RocksBlockStore<'a> {
+    fn get_block_from_hash(&self, hash: &str) -> Result<Option<Block>> {
+        self.get_block_from_hash(hash)
+    }
+
+    fn get_block_hash(&self, height: i64) -> Result<Option<String>> {
+        self.get_block_hash(height)
+    }
+
+    fn get_block_hash_for_tx(&self, tx_hash: &str) -> Result<Option<String>> {
+        self.get_block_hash_for_tx(tx_hash)
+    }
+
+    fn get_block_for_tx(&self, tx_hash: &str) -> Result<Option<Block>> {
+        self.get_block_for_tx(tx_hash)
+    }
+
+    fn get_block_from_height(&self, height: i64) -> Result<Option<Block>> {
+        self.get_block_from_height(height)
+    }
+
+    fn get_tx_from_hash(&self, hash: &str) -> Result<Option<Transaction>> {
+        self.get_tx_from_hash(hash)
+    }
+
+    fn get_tx_addr_data_from_hash(&self, hash: &str) -> Result<Option<TxAddrData>> {
+        self.get_tx_addr_data_from_hash(hash)
+    }
+}
+
+impl BlockStore for SqliteBlockStore {
+    fn get_block_from_hash(&self, hash: &str) -> Result<Option<Block>> {
+        self.get_block_from_hash(hash)
+    }
+
+    fn get_block_hash(&self, height: i64) -> Result<Option<String>> {
+        self.get_block_hash(height)
+    }
+
+    fn get_block_hash_for_tx(&self, tx_hash: &str) -> Result<Option<String>> {
+        self.get_block_hash_for_tx(tx_hash)
+    }
+
+    fn get_block_for_tx(&self, tx_hash: &str) -> Result<Option<Block>> {
+        self.get_block_for_tx(tx_hash)
+    }
+
+    fn get_block_from_height(&self, height: i64) -> Result<Option<Block>> {
+        self.get_block_from_height(height)
+    }
+
+    fn get_tx_from_hash(&self, hash: &str) -> Result<Option<Transaction>> {
+        self.get_tx_from_hash(hash)
+    }
+
+    fn get_tx_addr_data_from_hash(&self, hash: &str) -> Result<Option<TxAddrData>> {
+        self.get_tx_addr_data_from_hash(hash)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -192,7 +317,12 @@ pub struct TxAddrData {
     pub tx_out: HashMap<String, f64>,
 }
 
-impl<'a> BlockStore<'a> {
+pub struct RocksBlockStore<'a> {
+    db: &'a DB,
+    cf_tx: &'a ColumnFamily,
+}
+
+impl<'a> RocksBlockStore<'a> {
     pub fn new(db: &'a DB) -> Result<Self> {
         let cf_tx = db
             .cf_handle("tx")
@@ -292,16 +422,46 @@ impl<'a> BlockStore<'a> {
     }
 }
 
-// TODO: SqliteBlockStore to convert from rockdb. Not yet complete.
-
 pub struct SqliteBlockStore {
-    conn: Connection,
+    pub conn: Connection,
 }
 
 impl SqliteBlockStore {
     pub fn new(path: Option<&str>) -> Result<Self> {
         let conn = sqlite_init_db(path)?;
         Ok(Self { conn })
+    }
+
+    // Note index for this might not be there in the beginning.
+    pub fn get_block_hash(&self, height: i64) -> Result<Option<String>> {
+        let mut stmt = self
+            .conn
+            .prepare_cached("SELECT hash FROM blocks WHERE height = ?1")?;
+        let hash: Option<String> = stmt
+            .query_row(params![height], |row| row.get(0))
+            .optional()?;
+        Ok(hash)
+    }
+
+    pub fn get_block_hash_for_tx(&self, tx_hash: &str) -> Result<Option<String>> {
+        // We do the filter before join to ensure we join on the filtered
+        // and not other way
+        let query = "
+            SELECT b.hash
+            FROM blocks b
+            JOIN (
+                SELECT height
+                FROM txs
+                WHERE txid = ?1
+                LIMIT 1
+            ) t ON b.height = t.height
+        ";
+        let mut stmt = self.conn.prepare_cached(query)?;
+        let hash: Option<String> = stmt
+            .query_row(params![tx_hash], |row| row.get(0))
+            .optional()?;
+
+        Ok(hash)
     }
 
     pub fn get_block_from_height(&self, height: i64) -> Result<Option<Block>> {
@@ -337,7 +497,7 @@ impl SqliteBlockStore {
     pub fn get_block_for_tx(&self, tx_hash: &str) -> Result<Option<Block>> {
         let mut stmt = self
             .conn
-            .prepare_cached("SELECT height FROM txs WHERE txid = ?1")?;
+            .prepare_cached("SELECT height FROM txs WHERE txid = ?1 limit 1")?;
         let height: Option<i64> = stmt
             .query_row(params![tx_hash], |row| row.get(0))
             .optional()?;

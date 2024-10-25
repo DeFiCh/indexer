@@ -10,7 +10,7 @@ use args::Args;
 use clap::Parser;
 use db::{
     encode_height, rocks_open_db, sqlite_begin_tx, sqlite_commit_and_begin_tx, sqlite_commit_tx,
-    sqlite_get_stmts, sqlite_init_db, BlockStore,
+    sqlite_create_index_factory, sqlite_get_stmts, RocksBlockStore, SqliteBlockStore,
 };
 use dfiutils::{extract_dfi_addresses, token_id_to_symbol_maybe};
 use lang::OptionExt;
@@ -48,14 +48,14 @@ fn run(args: Args) -> Result<()> {
 
     if let Some(defid_log_path) = defid_log_path {
         let file = std::fs::File::open(defid_log_path)?;
-        let reader = std::io::BufReader::new(file);
+        let mut reader = std::io::BufReader::new(file);
 
-        for line in reader.lines() {
-            let line = line?;
-            if line.contains(defid_log_matcher) {
+        let mut line_buffer = String::new();
+        while reader.read_line(&mut line_buffer)? != 0 {
+            if line_buffer.contains(defid_log_matcher) {
                 // parse the line only on the valid json
-                if let Some(json_start) = line.find('{') {
-                    let json_str = &line[json_start..];
+                if let Some(json_start) = line_buffer.find('{') {
+                    let json_str = &line_buffer[json_start..];
                     if let Ok(icx_data) = serde_json::from_str::<IcxLogData>(json_str) {
                         icx_data_map.insert(icx_data.claim_tx.clone(), icx_data);
                     } else {
@@ -63,16 +63,18 @@ fn run(args: Args) -> Result<()> {
                     }
                 }
             }
+            line_buffer.clear();
         }
 
         info!("icx log file entries: {}", icx_data_map.len());
     }
 
     let rdb = rocks_open_db(rocks_db_path)?;
-    let block_store = BlockStore::new(&rdb)?;
+    let block_store = RocksBlockStore::new(&rdb)?;
 
-    let sconn = sqlite_init_db(sqlite_path)?;
-    let mut stmts = sqlite_get_stmts(&sconn)?;
+    let sq_store = SqliteBlockStore::new(sqlite_path)?;
+    let sconn = &sq_store.conn;
+    let mut stmts = sqlite_get_stmts(sconn)?;
 
     let start_key = "b/h/".to_owned() + &encode_height(start_height);
     let end_key = "b/h/".to_owned() + &encode_height(end_height);
@@ -82,7 +84,7 @@ fn run(args: Args) -> Result<()> {
         rust_rocksdb::Direction::Forward,
     ));
 
-    sqlite_begin_tx(&sconn)?;
+    sqlite_begin_tx(sconn)?;
 
     for (i, item) in iter.enumerate() {
         let (key, value) = item?;
@@ -225,7 +227,7 @@ fn run(args: Args) -> Result<()> {
             ])?;
 
             if tx_graph_table {
-                let tx_in_addrs = dfiutils::get_txin_addr_val_list(&tx.vin, &block_store)?;
+                let tx_in_addrs = dfiutils::get_txin_addr_val_list(&tx.vin, &sq_store)?;
                 let tx_out_addrs = dfiutils::get_txout_addr_val_list(&tx, &tx.vout);
                 let txid = &tx.txid;
 
@@ -298,17 +300,26 @@ fn run(args: Args) -> Result<()> {
         }
 
         if i % 10000 == 0 {
-            sqlite_commit_and_begin_tx(&sconn)?;
+            sqlite_commit_and_begin_tx(sconn)?;
             info!("processed: [{}] / [{}] // {}", height, end_height, i);
         }
         if quit.load(std::sync::atomic::Ordering::Relaxed) {
-            info!("quit signal received");
+            info!("int: early exit");
             break;
         }
     }
 
     info!("flushing db");
-    sqlite_commit_tx(&sconn)?;
+    sqlite_commit_tx(sconn)?;
+
+    for (name, indexer) in sqlite_create_index_factory(sconn) {
+        if quit.load(std::sync::atomic::Ordering::Relaxed) {
+            info!("int: early exit indexes");
+            break;
+        }
+        info!("creating index: {}..", name);
+        indexer()?;
+    }
 
     info!("done");
     Ok(())
@@ -330,7 +341,7 @@ fn main_fallible() -> Result<()> {
     Ok(())
 }
 
-fn main() {
+async fn main_async() {
     let res = main_fallible();
     if let Err(e) = res {
         error!("{e}");
@@ -339,4 +350,12 @@ fn main() {
             error!("{bt}");
         }
     }
+}
+
+fn main() {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(main_async());
 }

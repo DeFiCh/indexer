@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use tracing::info;
 
 use crate::args::Args;
-use crate::db::{encode_height, rocks_open_db, BlockStore};
+use crate::db::{encode_height, rocks_open_db, RocksBlockStore};
 use crate::dfiutils::extract_dfi_addresses;
 use crate::lang::{Error, Result};
 use crate::models::TxType;
@@ -41,7 +41,7 @@ pub fn graph_it(args: Args) -> Result<()> {
     std::fs::create_dir_all(&logs_dir)?;
 
     let db = rocks_open_db(None)?;
-    let block_store = BlockStore::new(&db)?;
+    let block_store = RocksBlockStore::new(&db)?;
 
     let start_key = "b/h/".to_owned() + &encode_height(0);
     let end_key = "b/h/".to_owned() + &encode_height(2_000_000);

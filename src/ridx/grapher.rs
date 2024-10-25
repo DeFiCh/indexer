@@ -80,7 +80,7 @@ pub fn graph_it(args: Args) -> Result<()> {
 
         for x in block.tx {
             // info!("{:?}", &x);
-            let mut tag_tx_addrs = false;
+            let mut tagged_dvm = false;
 
             let tx_data = block_store
                 .get_tx_addr_data_from_hash(&x.txid)?
@@ -115,11 +115,11 @@ pub fn graph_it(args: Args) -> Result<()> {
                     || t == TxType::ICXSubmitDFCHTLC
                     || t == TxType::ICXSubmitEXTHTLC
                 {
-                    tag_tx_addrs = true;
+                    tagged_dvm = true;
                 } else {
                     for x in dvm_addrs.iter() {
                         if tagged_addrs.contains(x) {
-                            tag_tx_addrs = true;
+                            tagged_dvm = true;
                             break;
                         }
                     }
@@ -165,7 +165,7 @@ pub fn graph_it(args: Args) -> Result<()> {
 
             for tx_out in tx_out.iter().filter(|x| x.0 != "x") {
                 let tx_out_node_meta = node_map_tx.get(tx_out.0).unwrap();
-                let tagged = if tag_tx_addrs || tagged_addrs.contains(tx_out.0) {
+                let tagged_out = if tagged_dvm || tagged_addrs.contains(tx_out.0) {
                     tagged_addrs.insert(tx_out.0.to_string());
                     true
                 } else {
@@ -173,21 +173,20 @@ pub fn graph_it(args: Args) -> Result<()> {
                 };
 
                 if tx_in.is_empty() && (tx_out.1 == &0.) {
-                    if !tagged {
-                        continue;
+                    if tagged_out {
+                        change_list.insert((coin_base_node, *tx_out_node_meta, tx_type.clone()));
                     }
-                    change_list.insert((coin_base_node, *tx_out_node_meta, tx_type.clone()));
                     continue;
                 }
 
                 for tx_in in tx_in.iter() {
-                    let tagged = if tag_tx_addrs || tagged_addrs.contains(tx_in.0) {
+                    let tagged_in = if tagged_dvm || tagged_addrs.contains(tx_in.0) {
                         tagged_addrs.insert(tx_in.0.to_string());
                         true
                     } else {
                         false
                     };
-                    if !tagged {
+                    if !tagged_in {
                         continue;
                     }
 
@@ -199,7 +198,7 @@ pub fn graph_it(args: Args) -> Result<()> {
             for tx_in in tx_in.iter() {
                 let in_node_meta = node_map_tx.get(tx_in.0).unwrap();
                 for x in dvm_addrs.iter() {
-                    if tag_tx_addrs || tagged_addrs.contains(x) {
+                    if tagged_dvm || tagged_addrs.contains(x) {
                         change_list.insert((
                             *in_node_meta,
                             *node_map_tx.get(x).unwrap(),

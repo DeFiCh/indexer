@@ -143,11 +143,10 @@ fn main_fallible() -> Result<()> {
     tracing_subscriber::fmt::fmt().compact().init();
 
     let e = std::env::args_os();
-
     let mut e = e.collect::<Vec<_>>();
 
     let f = e
-        .pop_if(|x| !x.to_str().unwrap().starts_with("--"))
+        .pop_if(|x| !x.to_str().unwrap().starts_with("-"))
         .ok_or("No file path provided")?;
     let f = f.into_string().map_err(|_| Error::from("err str"))?;
 

@@ -67,21 +67,21 @@ fn run(args: &Args) -> Result<()> {
 
     let mut cli = CliDriver::with_cli_path(args.defi_cli_path.clone());
     let sql_store = SqliteBlockStore::new(db_path)?;
-    let sconn = &sql_store.conn;
-    let mut stmts = sqlite_get_stmts(sconn)?;
-
-    sqlite_begin_tx(sconn)?;
 
     let chain_height = cli.get_block_count()?;
-
     let iter_end_height = if chain_height < end_height {
         chain_height
     } else {
         end_height
     };
 
+    let sconn = &sql_store.conn;
+    let mut stmts = sqlite_get_stmts(sconn)?;
+    sqlite_begin_tx(sconn)?;
+
     let mut err = Option::None;
     for height in start_height..=iter_end_height {
+        // TODO: Abstract this out to a fn so error control is better. For now, handle cli errors
         let hash = match cli.get_block_hash(height) {
             Ok(hash) => hash,
             Err(e) => {
@@ -205,8 +205,6 @@ fn run(args: &Args) -> Result<()> {
             ])?;
 
             if tx_graph_table {
-                let txid = &tx.txid;
-
                 // DVM addresses are parsed for all matching addresses inside the
                 // DVM data. There is no clean in and out: this requires specific
                 // knowledge of each message and there's no clear convention of this.
@@ -216,6 +214,7 @@ fn run(args: &Args) -> Result<()> {
                 // in dvm addresses as well in case no other edges were added. This
                 // should cover the case where they were also the dest.
 
+                let txid = &tx.txid;
                 let (tx_in_dvm_addrs, tx_out_dvm_addrs): (Vec<_>, Vec<_>) = dvm_addrs
                     .iter()
                     .cloned()
@@ -297,8 +296,8 @@ fn run(args: &Args) -> Result<()> {
         indexer()?;
     }
 
-    if err.is_some() {
-        return Err(err.unwrap());
+    if let Some(e) = err {
+        return Err(e);
     }
 
     info!("done");

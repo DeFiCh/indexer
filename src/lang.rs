@@ -1,25 +1,20 @@
 #![allow(dead_code)]
 
-use std::{backtrace, convert::Infallible};
+use std::convert::Infallible;
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("{0}")]
-    Message(String),
-    #[error("{msg}")]
-    Backtraced {
-        msg: String,
-        backtrace: backtrace::Backtrace,
-    },
-    #[error(transparent)]
-    FromInt(#[from] std::num::TryFromIntError),
-    #[error(transparent)]
-    IntParse(#[from] std::num::ParseIntError),
-    #[error(transparent)]
-    RocksDB(#[from] rust_rocksdb::Error),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
+    Message(String, std::backtrace::Backtrace),
+    #[error("try from int: {0}")]
+    FromInt(#[from] std::num::TryFromIntError, std::backtrace::Backtrace),
+    #[error("parse int: {0}")]
+    IntParse(#[from] std::num::ParseIntError, std::backtrace::Backtrace),
+    #[error("rocksdb: {0}")]
+    RocksDB(#[from] rust_rocksdb::Error, std::backtrace::Backtrace),
+    #[error("serde json: {0}")]
+    Serde(#[from] serde_json::Error, std::backtrace::Backtrace),
     #[error("str utf8: {0}")]
     StrUtf8(#[from] std::str::Utf8Error, std::backtrace::Backtrace),
     #[error("string utf8: {0}")]
@@ -32,7 +27,7 @@ pub enum Error {
     #[error("sqlite error: {0}")]
     SQLite(#[from] rusqlite::Error, std::backtrace::Backtrace),
     #[error("clap error: {0}")]
-    Clap(#[from] clap::Error),
+    Clap(#[from] clap::Error, std::backtrace::Backtrace),
     #[error(transparent)]
     Anyhow(
         #[from]
@@ -42,24 +37,14 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn backtraced(msg: &str) -> Self {
-        Error::Backtraced {
-            msg: msg.to_owned(),
-            backtrace: backtrace::Backtrace::capture(),
-        }
-    }
-
     pub fn none_err() -> Self {
-        Error::backtraced("Some option expected, got none")
+        Error::from("Some option expected, got none")
     }
 }
 
 impl std::convert::From<String> for Error {
     fn from(value: String) -> Self {
-        Error::Backtraced {
-            msg: value,
-            backtrace: backtrace::Backtrace::capture(),
-        }
+        Error::Message(value, std::backtrace::Backtrace::capture())
     }
 }
 
@@ -81,19 +66,6 @@ impl From<Infallible> for Error {
     }
 }
 
-pub trait OptionExt<T> {
-    fn ok_or_err(self) -> Result<T>;
-}
-
-impl<T> OptionExt<T> for Option<T> {
-    fn ok_or_err(self) -> Result<T> {
-        match self {
-            Some(v) => Ok(v),
-            None => Err(Error::none_err()),
-        }
-    }
-}
-
 pub trait ResultExt<T> {
     fn ext(self) -> Result<T>;
 }
@@ -103,6 +75,19 @@ impl<T, E: Into<Error>> ResultExt<T> for std::result::Result<T, E> {
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(e.into()),
+        }
+    }
+}
+
+pub trait OptionExt<T> {
+    fn ok_or_err(self) -> Result<T>;
+}
+
+impl<T> OptionExt<T> for Option<T> {
+    fn ok_or_err(self) -> Result<T> {
+        match self {
+            Some(v) => Ok(v),
+            None => Err(Error::none_err()),
         }
     }
 }

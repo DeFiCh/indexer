@@ -1,6 +1,7 @@
 #![feature(error_generic_member_access)]
-#![feature(vec_pop_if)]
 
+#[path = "../args.rs"]
+mod args;
 #[path = "../db.rs"]
 mod db;
 #[path = "../dfiutils.rs"]
@@ -10,36 +11,29 @@ mod lang;
 #[path = "../models.rs"]
 mod models;
 
-#[path = "../args.rs"]
-mod args;
+use std::error::request_ref;
 
 use crate::lang::Result;
 
-use args::Args;
-use clap::Parser;
-use lang::Error;
+use args::{get_args, verbosity_to_level, Args};
+use db::SqliteBlockStore;
 use tracing::error;
 
 // TODO: Import grapher from ridx
-fn run(_args: Args, _file_path: String) -> Result<()> {
+fn run(args: &Args) -> Result<()> {
+    let sql_store = SqliteBlockStore::new(Some(&args.sqlite_path))?;
+
     Ok(())
 }
 
 fn main_fallible() -> Result<()> {
     std::env::set_var("RUST_BACKTRACE", "1");
-    tracing_subscriber::fmt::fmt().compact().init();
-
-    let e = std::env::args_os();
-    let mut e = e.collect::<Vec<_>>();
-
-    let f = e
-        .pop_if(|x| !x.to_str().unwrap().starts_with("-"))
-        .ok_or("No file path provided")?;
-    let f = f.into_string().map_err(|_| Error::from("err str"))?;
-
-    let args = Args::try_parse_from(e)?;
-    run(args, f)?;
-
+    let args = get_args();
+    tracing_subscriber::fmt::fmt()
+        .with_max_level(verbosity_to_level(args.verbosity, Some(2)))
+        .compact()
+        .init();
+    run(args)?;
     Ok(())
 }
 
@@ -47,7 +41,7 @@ fn main() {
     let res = main_fallible();
     if let Err(e) = res {
         error!("{e}");
-        let bt = std::error::request_ref::<std::backtrace::Backtrace>(&e);
+        let bt = request_ref::<std::backtrace::Backtrace>(&e);
         if let Some(bt) = bt {
             error!("{bt}");
         }

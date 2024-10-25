@@ -3,17 +3,10 @@
 
 // Reduce the output of the graph by deduplicating edges and counting occurrences
 
-#[path = "../db.rs"]
-mod db;
-#[path = "../dfiutils.rs"]
-mod dfiutils;
-#[path = "../lang.rs"]
-mod lang;
-#[path = "../models.rs"]
-mod models;
-
 #[path = "../args.rs"]
 mod args;
+#[path = "../lang.rs"]
+mod lang;
 
 use crate::lang::Result;
 

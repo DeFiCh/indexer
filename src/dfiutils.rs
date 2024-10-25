@@ -11,7 +11,7 @@ use std::process::{Command, Output};
 
 #[derive(Debug)]
 pub struct CliDriver {
-    cli_path: String,
+    pub cli_path: String,
 }
 
 pub struct OutputExt {
@@ -33,6 +33,10 @@ impl CliDriver {
         CliDriver {
             cli_path: "defi-cli".to_owned(),
         }
+    }
+
+    pub fn with_cli_path(cli_path: String) -> CliDriver {
+        CliDriver { cli_path }
     }
 
     pub fn run<I, S>(&mut self, args: I) -> Result<OutputExt>
@@ -141,7 +145,7 @@ pub fn token_id_to_symbol_maybe(token_id: &str) -> &str {
 
 pub fn get_txin_addr_val_list(
     tx_ins: &[Vin],
-    block_store: &dyn BlockStore,
+    block_store: &impl BlockStore,
 ) -> Result<Vec<(String, f64)>> {
     let map_fn = |x: VinStandard| {
         let tx_id = x.txid;

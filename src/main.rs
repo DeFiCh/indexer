@@ -6,26 +6,22 @@ mod dfiutils;
 mod lang;
 mod models;
 
-use args::Args;
-use clap::Parser;
+use args::{get_args, verbosity_to_level, Args};
 use db::{
-    encode_height, rocks_open_db, sqlite_begin_tx, sqlite_commit_and_begin_tx, sqlite_commit_tx,
-    sqlite_create_index_factory, sqlite_get_stmts, RocksBlockStore, SqliteBlockStore,
+    sqlite_begin_tx, sqlite_commit_and_begin_tx, sqlite_commit_tx, sqlite_create_index_factory,
+    sqlite_get_stmts, SqliteBlockStore,
 };
-use dfiutils::{extract_dfi_addresses, token_id_to_symbol_maybe};
+use dfiutils::{extract_dfi_addresses, token_id_to_symbol_maybe, CliDriver};
 use lang::OptionExt;
-use lang::{Error, Result};
-use models::{IcxLogData, IcxTxSet, TxType};
+use lang::Result;
+use models::{Block, IcxLogData, IcxTxSet, TxType};
 use std::collections::HashMap;
 use std::{error::request_ref, io::BufRead};
+use tracing::debug;
 use tracing::{error, info};
 
-fn run(args: Args) -> Result<()> {
-    let rocks_db_path = match args.src_rocks_db_path.is_empty() {
-        true => None,
-        false => Some(args.src_rocks_db_path.as_str()),
-    };
-    let sqlite_path = match args.sqlite_path.is_empty() {
+fn run(args: &Args) -> Result<()> {
+    let db_path = match args.sqlite_path.is_empty() {
         true => None,
         false => Some(args.sqlite_path.as_str()),
     };
@@ -33,7 +29,7 @@ fn run(args: Args) -> Result<()> {
         true => None,
         false => Some(args.defid_log_path.as_str()),
     };
-    let tx_graph_table = args.graph_table.unwrap();
+    let tx_graph_table = args.enable_graph_table;
     let defid_log_matcher = args.defid_log_matcher.as_str();
 
     let start_height = args.start_height;
@@ -69,78 +65,60 @@ fn run(args: Args) -> Result<()> {
         info!("icx log file entries: {}", icx_data_map.len());
     }
 
-    let rdb = rocks_open_db(rocks_db_path)?;
-    let block_store = RocksBlockStore::new(&rdb)?;
-
-    let sq_store = SqliteBlockStore::new(sqlite_path)?;
-    let sconn = &sq_store.conn;
+    let mut cli = CliDriver::with_cli_path(args.defi_cli_path.clone());
+    let sql_store = SqliteBlockStore::new(db_path)?;
+    let sconn = &sql_store.conn;
     let mut stmts = sqlite_get_stmts(sconn)?;
-
-    let start_key = "b/h/".to_owned() + &encode_height(start_height);
-    let end_key = "b/h/".to_owned() + &encode_height(end_height);
-
-    let iter = rdb.iterator(rust_rocksdb::IteratorMode::From(
-        start_key.as_bytes(),
-        rust_rocksdb::Direction::Forward,
-    ));
 
     sqlite_begin_tx(sconn)?;
 
-    for (i, item) in iter.enumerate() {
-        let (key, value) = item?;
-        if key.as_ref() >= end_key.as_bytes() {
-            break;
-        }
+    let chain_height = cli.get_block_count()?;
 
-        // Well known keys, skip the utf8 checks for perf as
-        // every little thing in this loop is a hot stop, as each run millions of times
-        let key = unsafe { std::str::from_boxed_utf8_unchecked(key) };
-        let hash = unsafe { std::str::from_boxed_utf8_unchecked(value) };
+    let iter_end_height = if chain_height < end_height {
+        chain_height
+    } else {
+        end_height
+    };
 
-        // Equivalent to contains check and strip - we just do it in the same pass.
-        let h = key.strip_prefix("b/h/");
-        if h.is_none() {
-            info!("key prefix exceeded: {}", &key);
-            break;
-        }
-        let h = h.unwrap();
+    let mut err = Option::None;
+    for height in start_height..=iter_end_height {
+        let hash = match cli.get_block_hash(height) {
+            Ok(hash) => hash,
+            Err(e) => {
+                err = Some(e);
+                break;
+            }
+        };
+        let block = match cli.get_block(&hash, Some(4)) {
+            Ok(block) => block,
+            Err(e) => {
+                err = Some(e);
+                break;
+            }
+        };
 
-        let (_l_str, height_str) = h.split_at(1);
-        let height = height_str.parse::<u64>()?;
+        let block: Block = serde_json::from_value(block)?;
 
-        let b = block_store.get_block_from_hash(&hash)?;
-        let block = b.ok_or_else(|| Error::from("block not found"))?;
-
-        // perf focused loop, but still ensure integrity
-        if height != block.height as u64 {
-            return Err(Error::Message(format!(
-                "height mismatch: {} != {}",
-                height, block.height
-            )));
-        }
-
-        // println!("[{}] key: {}, value: {}", height, key, &hash);
-
+        debug!("[{}] hash: {}", height, &hash);
         {
             let block_json = serde_json::to_string(&block)?;
             stmts[0].execute(rusqlite::params![height, &hash, &block_json])?;
         }
 
         for tx in block.tx {
-            let tx_data = block_store
-                .get_tx_addr_data_from_hash(&tx.txid)?
-                .ok_or_else(|| Error::from(format!("tx data: {}", &tx.txid)))?;
+            let tx_in_addrs = dfiutils::get_txin_addr_val_list(&tx.vin, &sql_store)?;
+            let tx_out_addrs = dfiutils::get_txout_addr_val_list(&tx, &tx.vout);
 
             let mut tx_type = tx.vm.as_ref().map(|x| TxType::from(x.txtype.as_ref()));
-            let tx_out = tx_data
-                .tx_out
+            let tx_out = tx_out_addrs
                 .iter()
                 .filter(|x| x.0 != "x") // strip coinbase out
+                .cloned()
                 .collect::<HashMap<_, _>>();
 
             let mut dvm_addrs = vec![];
 
-            if tx_data.tx_in.is_empty() {
+            if tx_in_addrs.is_empty() {
                 tx_type = Some(TxType::Coinbase);
             }
 
@@ -152,11 +130,11 @@ fn run(args: Args) -> Result<()> {
                 dvm_addrs = extract_dfi_addresses(&dvm_data);
             }
             let mut icx_claim_data: Option<IcxTxSet> = None;
-            let mut icx_addr: String = empty();
-            let mut icx_amt: String = empty();
-            let mut swap_from: String = empty();
-            let mut swap_to: String = empty();
-            let mut swap_amt: String = empty();
+            let mut icx_addr = empty();
+            let mut icx_amt = empty();
+            let mut swap_from = empty();
+            let mut swap_to = empty();
+            let mut swap_amt = empty();
 
             match tx_type {
                 //  Some(TxType::CompositeSwap) not enabled < 2m.
@@ -193,12 +171,12 @@ fn run(args: Args) -> Result<()> {
             } else {
                 serde_json::to_string(&dvm_addrs)?
             };
-            let tx_in_json = if tx_data.tx_in.is_empty() {
+            let tx_in_json = if tx_in_addrs.is_empty() {
                 empty()
             } else {
-                serde_json::to_string(&tx_data.tx_in)?
+                serde_json::to_string(&tx_in_addrs)?
             };
-            let tx_out_json = if tx_data.tx_out.is_empty() {
+            let tx_out_json = if tx_out_addrs.is_empty() {
                 empty()
             } else {
                 serde_json::to_string(&tx_out)?
@@ -227,8 +205,6 @@ fn run(args: Args) -> Result<()> {
             ])?;
 
             if tx_graph_table {
-                let tx_in_addrs = dfiutils::get_txin_addr_val_list(&tx.vin, &sq_store)?;
-                let tx_out_addrs = dfiutils::get_txout_addr_val_list(&tx, &tx.vout);
                 let txid = &tx.txid;
 
                 // DVM addresses are parsed for all matching addresses inside the
@@ -299,9 +275,9 @@ fn run(args: Args) -> Result<()> {
             }
         }
 
-        if i % 10000 == 0 {
+        if height % 10000 == 0 {
             sqlite_commit_and_begin_tx(sconn)?;
-            info!("processed: [{}] / [{}] // {}", height, end_height, i);
+            info!("processed: [{}] / [{}]", height, end_height);
         }
         if quit.load(std::sync::atomic::Ordering::Relaxed) {
             info!("int: early exit");
@@ -321,27 +297,32 @@ fn run(args: Args) -> Result<()> {
         indexer()?;
     }
 
+    if err.is_some() {
+        return Err(err.unwrap());
+    }
+
     info!("done");
     Ok(())
 }
 
 // Just a short convenience alias for internal use.
 fn empty() -> String {
-    static EMPTY_STR: String = String::new();
-    EMPTY_STR.clone()
+    String::new()
 }
 
 fn main_fallible() -> Result<()> {
     std::env::set_var("RUST_BACKTRACE", "1");
-    tracing_subscriber::fmt::fmt().compact().init();
-
-    let args = Args::parse();
+    let args = get_args();
+    tracing_subscriber::fmt::fmt()
+        .with_max_level(verbosity_to_level(args.verbosity, Some(2)))
+        .compact()
+        .init();
     run(args)?;
 
     Ok(())
 }
 
-async fn main_async() {
+fn main() {
     let res = main_fallible();
     if let Err(e) = res {
         error!("{e}");
@@ -350,12 +331,4 @@ async fn main_async() {
             error!("{bt}");
         }
     }
-}
-
-fn main() {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(main_async());
 }

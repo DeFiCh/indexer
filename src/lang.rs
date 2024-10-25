@@ -56,7 +56,10 @@ impl Error {
 
 impl std::convert::From<String> for Error {
     fn from(value: String) -> Self {
-        Error::Message(value)
+        Error::Backtraced {
+            msg: value,
+            backtrace: backtrace::Backtrace::capture(),
+        }
     }
 }
 

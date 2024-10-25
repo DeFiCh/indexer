@@ -20,9 +20,8 @@ pub struct Args {
     pub verbosity: u8,
     #[command(subcommand)]
     pub cmd: Option<Commands>,
-
-    #[arg(long, default_value = "data/db")]
-    pub src_rocks_db_path: String,
+    #[arg(long, default_value = "defi-cli")]
+    pub defi_cli_path: String,
     #[arg(long, default_value = "data/index.sqlite")]
     pub sqlite_path: String,
     #[arg(long, default_value = "data/debug.log")]
@@ -35,8 +34,8 @@ pub struct Args {
     pub start_height: i64,
     #[arg(short = 'e', long, default_value_t = 2_000_000)]
     pub end_height: i64,
-    #[arg(long, default_missing_value="true", num_args=0..=1)]
-    pub graph_table: Option<bool>,
+    #[arg(long, default_value_t = true)]
+    pub enable_graph_table: bool,
 }
 
 #[derive(Subcommand, Debug)]

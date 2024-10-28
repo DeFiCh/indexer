@@ -5,14 +5,13 @@ mod legacy;
 use crate::lang::{Result, ResultExt};
 use crate::models::{Block, IcxTxSet, Transaction};
 
-use legacy::{
+#[allow(unused_imports)]
+pub use legacy::{
     encode_height, rocks_compact_db, rocks_get_db_opts, rocks_open_db,
     sqlite_create_index_factory_v1, sqlite_get_stmts_v1, sqlite_init_db_v1, RocksBlockStore,
 };
 use rusqlite::{params, CachedStatement, Connection, OptionalExtension};
-use rust_rocksdb::{ColumnFamily, ColumnFamilyDescriptor, CompactOptions, Options, DB};
 use std::collections::HashMap;
-use tracing::{debug, info};
 
 pub fn sqlite_init_db_v2(path: Option<&str>) -> Result<Connection> {
     let path = path.unwrap_or("data/index.sqlite");

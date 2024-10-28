@@ -1,6 +1,6 @@
 #![feature(error_generic_member_access)]
 
-#[path = "../db.rs"]
+#[path = "../db/mod.rs"]
 mod db;
 #[path = "../dfiutils.rs"]
 mod dfiutils;
@@ -18,8 +18,8 @@ mod txindexer;
 
 use crate::lang::Result;
 
-use std::env;
 use clap::Parser;
+use std::env;
 use tracing::info;
 
 fn main() -> Result<()> {

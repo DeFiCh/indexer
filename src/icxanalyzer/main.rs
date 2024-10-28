@@ -26,7 +26,7 @@ fn run(args: &Args) -> Result<()> {
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, std::sync::Arc::clone(&quit))?;
 
-    let strategy = args.strategy;
+    let _strategy = args.strategy;
     let sql_store = SqliteBlockStore::new(Some(&args.sqlite_path))?;
     let tracked_tx_types: HashSet<_> = [
         TxType::Unknown,
@@ -81,6 +81,7 @@ fn run(args: &Args) -> Result<()> {
     };
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct TrackedInfo {
         origin_txid: String,
         addr: String,

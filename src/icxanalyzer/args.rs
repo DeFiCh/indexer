@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Parser, ValueEnum};
 use std::sync::LazyLock;
 use tracing::Level;
 

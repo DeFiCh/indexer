@@ -28,12 +28,15 @@ pub enum Cmd {
     /// Reduce dot graph files
     #[command(name = "dotreduce")]
     DotReduce {
-        #[arg(long, default_value = "data/")]
-        data_dir_path: String,
+        #[arg(long = "in")]
+        in_file: String,
     },
     /// Analyze ICX usages
     #[command(name = "icxanalyze")]
     ICXAnalyze(crate::icxanalyzer::ICXAnalyzeArgs),
+    /// Build full graph
+    #[command(name = "graph")]
+    Graph(crate::grapher::GrapherArgs),
 }
 
 pub fn verbosity_to_level(verbosity: u8, min: Option<u8>) -> Level {

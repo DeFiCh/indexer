@@ -322,12 +322,12 @@ pub struct SqliteBlockStore {
 }
 
 impl SqliteBlockStore {
-    pub fn new(path: Option<&str>) -> Result<Self> {
+    pub fn new_v1(path: Option<&str>) -> Result<Self> {
         let conn = sqlite_init_db_v1(path)?;
         Ok(Self { conn })
     }
 
-    pub fn new_v1(path: Option<&str>) -> Result<Self> {
+    pub fn new_v2(path: Option<&str>) -> Result<Self> {
         let conn = sqlite_init_db_v2(path)?;
         Ok(Self { conn })
     }

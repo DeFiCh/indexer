@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 
+use im_rc::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -152,23 +153,23 @@ pub enum TxType {
     Unknown,
     Coinbase,
     Utxo,
+    AutoAuth,
+    UtxosToAccount,
+    AccountToUtxos,
+    AccountToAccount,
+    AnyAccountsToAccounts,
     CreateMasternode,
     ResignMasternode,
     PoolSwap,
     CompositeSwap,
     AddPoolLiquidity,
     RemovePoolLiquidity,
-    UtxosToAccount,
-    AccountToUtxos,
-    AccountToAccount,
     WithdrawFromVault,
     SetOracleData,
     DepositToVault,
     PaybackLoan,
     TakeLoan,
-    AutoAuth,
     Vault,
-    AnyAccountsToAccounts,
     ICXCreateOrder,
     ICXMakeOffer,
     ICXSubmitDFCHTLC,
@@ -222,23 +223,23 @@ impl std::fmt::Display for TxType {
             Unknown => "_",
             Coinbase => "cb",
             Utxo => "u",
+            AutoAuth => "au",
+            UtxosToAccount => "+a",
+            AccountToUtxos => "-a",
+            AccountToAccount => "aa",
+            AnyAccountsToAccounts => "ax",
             CreateMasternode => "+m",
             ResignMasternode => "-m",
             PoolSwap => "ps",
             CompositeSwap => "cs",
             AddPoolLiquidity => "+p",
             RemovePoolLiquidity => "-p",
-            UtxosToAccount => "+a",
-            AccountToUtxos => "-a",
-            AccountToAccount => "aa",
-            SetOracleData => "+o",
-            AnyAccountsToAccounts => "ax",
-            AutoAuth => "au",
             WithdrawFromVault => "v-",
             DepositToVault => "v+",
             PaybackLoan => "l-",
             TakeLoan => "l+",
             Vault => "vn",
+            SetOracleData => "+o",
             ICXCreateOrder => "icx-start",
             ICXMakeOffer => "icx-of",
             ICXSubmitDFCHTLC => "icx-sdfc",
@@ -250,4 +251,40 @@ impl std::fmt::Display for TxType {
         };
         f.write_str(t)
     }
+}
+
+type TokenAmount = String;
+
+// vm":{"vmtype":"dvm","txtype":"UtxosToAccount","msg":{"8RbpgySS2qkXQG2UosQCqADtS7zRAr8bx5":"60000.00000000@0"}}}
+pub type UtxosToAccountMsg = HashMap<String, TokenAmount>;
+
+// "vm":{"vmtype":"dvm","txtype":"AccountToAccount","msg":{"from":"dK13qHWrbSdtFkxnfg3UVEvNrsxa9i45pd","to":{"dc432ofNoMBg3Y6eubzx5dS1iRLMKXsBWE":"2.00000000@128"}}}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AccountToAccountMsg {
+    pub from: String,
+    pub to: HashMap<String, TokenAmount>,
+}
+
+// "vm":{"vmtype":"dvm","txtype":"AnyAccountsToAccounts","msg":{"from":{"dPhcSbZFcqeiaKxpVc9yWGTGchgvfXvFA8":"1.00000000@0"},"to":{"8VW5syUUa726cPYUjidE7SyyGjEZrVi4JU":"1.00000000@0"}}}}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AnyAccountsToAccountsMsg {
+    pub from: HashMap<String, TokenAmount>,
+    pub to: HashMap<String, TokenAmount>,
+}
+
+// "vm":{"vmtype":"dvm","txtype":"AccountToUtxos","msg":{"from":"8HzyWaC9bJKCouveUed2jm8w4MJzrt3c2Q","to":{"dFZRkToyEgnWy8GSXHmJPM1KXY67XKgSQx":"6338.00000000@0"}}}}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AccountToUtxosMsg {
+    pub from: String,
+    pub to: HashMap<String, TokenAmount>,
+}
+
+// "vm":{"vmtype":"dvm","txtype":"PoolSwap","msg":{"fromAddress":"8J6KKxHQAWDJDR1PQfC46ocgmxTvtLLc6R","fromAmount":9.0,"fromToken":"0","maxPrice":0.00002531,"maxPriceHighPrecision":"0.00002531","toAddress":"8eG9Pe1wQnWZuXD5NRr3QaxDex9RJ99fd5","toToken":"2"}}}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
+pub struct PoolSwapMsg {
+    pub from_address: String,
+    pub to_address: String,
+    pub from_amount: f64,
+    pub from_token: String,
+    pub to_token: String,
 }

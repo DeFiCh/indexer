@@ -7,7 +7,7 @@ use db::{
     sqlite_begin_tx, sqlite_commit_and_begin_tx, sqlite_commit_tx, sqlite_create_index_factory_v2,
     sqlite_get_stmts_v2, SqliteBlockStore,
 };
-use dfiutils::{extract_dfi_addresses, token_id_to_symbol_maybe, CliDriver};
+use dfiutils::{extract_all_dfi_addresses, token_id_to_symbol_maybe, CliDriver};
 use lang::OptionExt;
 use lang::Result;
 use models::{Block, IcxLogData, IcxTxSet, TxType};
@@ -82,7 +82,7 @@ pub fn run(args: &IndexArgs) -> Result<()> {
     }
 
     let mut cli = CliDriver::with_cli_path(args.defi_cli_path.clone());
-    let sql_store = SqliteBlockStore::new_v1(db_path)?;
+    let sql_store = SqliteBlockStore::new_v2(db_path)?;
 
     let chain_height = cli.get_block_count()?;
     let iter_end_height = if chain_height < end_height {
@@ -97,6 +97,11 @@ pub fn run(args: &IndexArgs) -> Result<()> {
 
     let mut err = Option::None;
     for height in start_height..=iter_end_height {
+        if quit.load(std::sync::atomic::Ordering::Relaxed) {
+            info!("int: early exit");
+            break;
+        }
+
         // TODO: Abstract this out to a fn so error control is better. For now, handle cli errors
         let hash = match cli.get_block_hash(height) {
             Ok(hash) => hash,
@@ -144,7 +149,7 @@ pub fn run(args: &IndexArgs) -> Result<()> {
                 Some(TxType::Coinbase) | Some(TxType::Unknown) | Some(TxType::Utxo) | None
             ) {
                 let dvm_data = tx.vm.as_ref().map(|x| x.msg.to_string()).unwrap();
-                dvm_addrs = extract_dfi_addresses(&dvm_data);
+                dvm_addrs = extract_all_dfi_addresses(&dvm_data);
             }
             let mut icx_claim_data: Option<IcxTxSet> = None;
             let mut icx_addr = empty();
@@ -157,12 +162,10 @@ pub fn run(args: &IndexArgs) -> Result<()> {
                 //  Some(TxType::CompositeSwap) not enabled < 2m.
                 Some(TxType::PoolSwap) => {
                     let swap_data = &tx.vm.as_ref().ok_or_err()?.msg;
-                    let from_token = swap_data["fromToken"].as_str().ok_or_err()?;
-                    let to_token = swap_data["toToken"].as_str().ok_or_err()?;
-                    let amt = swap_data["fromAmount"].as_f64().ok_or_err()?;
-                    swap_from = token_id_to_symbol_maybe(from_token).to_string();
-                    swap_to = token_id_to_symbol_maybe(to_token).to_string();
-                    swap_amt = format!("{:.9}", amt);
+                    let swap_data: models::PoolSwapMsg = serde_json::from_value(swap_data.clone())?;
+                    swap_from = token_id_to_symbol_maybe(&swap_data.from_token).to_string();
+                    swap_to = token_id_to_symbol_maybe(&swap_data.to_token).to_string();
+                    swap_amt = format!("{:.9}", &swap_data.from_amount);
                 }
                 Some(TxType::ICXClaimDFCHTLC) => {
                     let icx_data = icx_data_map.get(tx.txid.as_str());
@@ -275,10 +278,6 @@ pub fn run(args: &IndexArgs) -> Result<()> {
         if height % 10000 == 0 {
             sqlite_commit_and_begin_tx(sconn)?;
             info!("processed: [{}] / [{}]", height, end_height);
-        }
-        if quit.load(std::sync::atomic::Ordering::Relaxed) {
-            info!("int: early exit");
-            break;
         }
     }
 

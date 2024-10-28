@@ -6,7 +6,7 @@ use tracing::info;
 
 use crate::args::Args;
 use crate::db::{encode_height, rocks_open_db, RocksBlockStore};
-use crate::dfiutils::extract_dfi_addresses;
+use crate::dfiutils::extract_all_dfi_addresses;
 use crate::lang::{Error, Result};
 use crate::models::TxType;
 
@@ -69,7 +69,7 @@ pub fn graph_it(args: Args) -> Result<()> {
     for (i, item) in iter.enumerate() {
         let (k, v) = item?;
         let key = std::str::from_utf8(&k)?;
-        if !key.starts_with("b/h/") || key > &end_key {
+        if !key.starts_with("b/h/") || *key > *end_key {
             info!("key prefix exceeded: {}", &key);
             break;
         }
@@ -105,7 +105,7 @@ pub fn graph_it(args: Args) -> Result<()> {
             ) {
                 let t = tx_type.clone().unwrap();
                 let dvm_data = x.vm.as_ref().map(|x| x.msg.to_string()).unwrap();
-                dvm_addrs = extract_dfi_addresses(&dvm_data)
+                dvm_addrs = extract_all_dfi_addresses(&dvm_data)
                     .into_iter()
                     .collect::<Vec<_>>();
 

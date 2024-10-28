@@ -73,7 +73,7 @@ impl CliDriver {
     }
 }
 
-pub fn extract_dfi_addresses(json_haystack: &str) -> HashSet<String> {
+pub fn extract_all_dfi_addresses(json_haystack: &str) -> HashSet<String> {
     use std::sync::LazyLock;
     static DFI_ADDRESS_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
         let r1 = r#""(d|7|8)[1-9A-HJ-NP-Za-km-z]{25,34}""#; // legacy
@@ -121,7 +121,7 @@ fn test_extract_dfi_addresses() {
     ]
     .sort();
 
-    let addresses = extract_dfi_addresses(json_haystack)
+    let addresses = extract_all_dfi_addresses(json_haystack)
         .into_iter()
         .collect::<Vec<_>>()
         .sort();
@@ -184,6 +184,7 @@ pub fn get_txout_addr_val_list(tx: &Transaction, tx_outs: &[Vout]) -> Vec<(Strin
                 // Multi-sig, we just join it with a +
                 addrs.join("+")
             } else {
+                // most dvm OP_RETURN txs without address will be these
                 "x".to_owned()
             };
             (addr, val)

@@ -6,18 +6,18 @@ use std::collections::HashSet;
 use tracing::{debug, error, info};
 
 #[derive(Parser, Debug)]
-pub struct ICXAnalyzeArgs {
+pub struct GrapherArgs {
     #[arg(long, default_value = "data/index.sqlite")]
     pub sqlite_path: String,
+    #[arg(long, default_value = "data/graph.bin")]
+    pub graph_bin_path: String,
     #[arg(short = 's', long, default_value_t = 0)]
     pub start_height: i64,
     #[arg(short = 'e', long, default_value_t = 2_000_000)]
     pub end_height: i64,
-    #[arg(long, default_value_t = 1)]
-    pub icx_addr: i64,
 }
 
-pub fn run(args: &ICXAnalyzeArgs) -> Result<()> {
+pub fn run(args: &GrapherArgs) -> Result<()> {
     debug!("args: {:?}", args);
 
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -120,7 +120,7 @@ pub fn run(args: &ICXAnalyzeArgs) -> Result<()> {
                     this_addr_icx_claims += 1;
                 }
             }
-            if count == args.icx_addr {
+            if count == 1 {
                 debug!("icx tx: {} // {}", &tx.txid, &tx.icx_addr);
                 is_tracked_tx = true;
                 tracked_info = Some(TrackedInfo {

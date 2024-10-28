@@ -4,6 +4,7 @@ mod args;
 mod db;
 mod dfiutils;
 mod dotreducer;
+mod grapher;
 mod icxanalyzer;
 mod lang;
 mod models;
@@ -29,11 +30,14 @@ fn main_fallible() -> Result<()> {
         Cmd::Index(a) => {
             sqliteindexer::run(a)?;
         }
-        Cmd::DotReduce { data_dir_path } => {
-            dotreducer::run(data_dir_path)?;
+        Cmd::DotReduce { in_file } => {
+            dotreducer::run(in_file)?;
         }
         Cmd::ICXAnalyze(a) => {
             icxanalyzer::run(a)?;
+        }
+        Cmd::Graph(a) => {
+            grapher::run(a)?;
         }
     }
     Ok(())

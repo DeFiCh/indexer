@@ -1,7 +1,7 @@
 #![feature(error_generic_member_access)]
 
 mod args;
-#[path = "../db.rs"]
+#[path = "../db/mod.rs"]
 mod db;
 #[path = "../dfiutils.rs"]
 mod dfiutils;
@@ -27,7 +27,7 @@ fn run(args: &Args) -> Result<()> {
     signal_hook::flag::register(signal_hook::consts::SIGINT, std::sync::Arc::clone(&quit))?;
 
     let strategy = args.strategy;
-    let sql_store = SqliteBlockStore::new2(Some(&args.sqlite_path))?;
+    let sql_store = SqliteBlockStore::new(Some(&args.sqlite_path))?;
     let tracked_tx_types: HashSet<_> = [
         TxType::Unknown,
         // TxType::Coinbase,

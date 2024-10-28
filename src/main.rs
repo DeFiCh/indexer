@@ -68,7 +68,7 @@ fn run(args: &Args) -> Result<()> {
     }
 
     let mut cli = CliDriver::with_cli_path(args.defi_cli_path.clone());
-    let sql_store = SqliteBlockStore::new(db_path)?;
+    let sql_store = SqliteBlockStore::new_v1(db_path)?;
 
     let chain_height = cli.get_block_count()?;
     let iter_end_height = if chain_height < end_height {

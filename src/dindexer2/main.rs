@@ -2,7 +2,7 @@
 
 #[path = "../args.rs"]
 mod args;
-#[path = "../db.rs"]
+#[path = "../db/mod.rs"]
 mod db;
 #[path = "../dfiutils.rs"]
 mod dfiutils;
@@ -73,8 +73,8 @@ fn run(args: &Args) -> Result<()> {
         info!("icx log file entries: {}", icx_data_map.len());
     }
 
-    let sql_store = SqliteBlockStore::new(db_path)?;
-    let sql_store2 = SqliteBlockStore::new2(Some("/media/pvl/data/defi/index2.sqlite"))?;
+    let sql_store = SqliteBlockStore::new_v1(db_path)?;
+    let sql_store2 = SqliteBlockStore::new(Some("/media/pvl/data/defi/index2.sqlite"))?;
 
     let sconn = &sql_store2.conn;
     let mut stmts = sqlite_get_stmts_v2(sconn)?;

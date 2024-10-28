@@ -1,32 +1,28 @@
-#![feature(error_generic_member_access)]
-
-mod args;
-#[path = "../db/mod.rs"]
-mod db;
-#[path = "../dfiutils.rs"]
-mod dfiutils;
-#[path = "../lang.rs"]
-mod lang;
-#[path = "../models.rs"]
-mod models;
-
-use std::error::request_ref;
-
+use crate::db::{SqliteBlockStore, TxRow};
 use crate::lang::Result;
-
-use args::{get_args, verbosity_to_level, Args};
-use db::SqliteBlockStore;
-use models::TxType;
+use crate::models::TxType;
+use clap::Parser;
 use std::collections::HashSet;
 use tracing::{debug, error, info};
 
-fn run(args: &Args) -> Result<()> {
+#[derive(Parser, Debug)]
+pub struct ICXAnalyzeArgs {
+    #[arg(long, default_value = "data/index.sqlite")]
+    pub sqlite_path: String,
+    #[arg(short = 's', long, default_value_t = 0)]
+    pub start_height: i64,
+    #[arg(short = 'e', long, default_value_t = 2_000_000)]
+    pub end_height: i64,
+    #[arg(long, default_value_t = 1)]
+    pub icx_addr: i64,
+}
+
+pub fn run(args: &ICXAnalyzeArgs) -> Result<()> {
     debug!("args: {:?}", args);
 
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, std::sync::Arc::clone(&quit))?;
 
-    let _strategy = args.strategy;
     let sql_store = SqliteBlockStore::new(Some(&args.sqlite_path))?;
     let tracked_tx_types: HashSet<_> = [
         TxType::Unknown,
@@ -62,7 +58,7 @@ fn run(args: &Args) -> Result<()> {
     .map(|x| x.to_string())
     .collect();
 
-    let stop_tracking_predicate = |tx: &db::TxRow, tracked_info: &TrackedInfo| -> bool {
+    let stop_tracking_predicate = |tx: &TxRow, tracked_info: &TrackedInfo| -> bool {
         if tx.tx_type == TxType::PoolSwap.to_string()
             && tx.swap_from == "btc"
             && tracked_info.current_swapped >= (tracked_info.btc_minted - 0.00000001)
@@ -70,10 +66,10 @@ fn run(args: &Args) -> Result<()> {
             debug!("{:?}", tracked_info);
             return true;
         }
-        return false;
+        false
     };
 
-    let update_tracking_info = |tx: &db::TxRow, tracked_info: &mut TrackedInfo| -> Result<()> {
+    let update_tracking_info = |tx: &TxRow, tracked_info: &mut TrackedInfo| -> Result<()> {
         if tx.tx_type == TxType::PoolSwap.to_string() && tx.swap_from == "btc" {
             tracked_info.current_swapped += str::parse::<f64>(&tx.swap_amt)?;
         }
@@ -181,7 +177,7 @@ fn run(args: &Args) -> Result<()> {
 
         tracked.extend(tx.tx_out.iter().map(|x| x.0.clone()));
         tracked.extend(tx.tx_in.iter().map(|x| x.0.clone()));
-        tracked.extend(tx.dvm_out.iter().map(|x| x.clone()));
+        tracked.extend(tx.dvm_out.iter().cloned());
 
         if quit.load(std::sync::atomic::Ordering::Relaxed) {
             info!("int: early exit");
@@ -209,28 +205,4 @@ fn run(args: &Args) -> Result<()> {
     );
     info!("summary: scanned icx-claims: {}", count);
     Ok(())
-}
-
-fn main_fallible() -> Result<()> {
-    // std::env::set_var("RUST_BACKTRACE", "1");
-    let args = get_args();
-    let emit_ansi = atty::is(atty::Stream::Stdout);
-    tracing_subscriber::fmt::fmt()
-        .with_max_level(verbosity_to_level(args.verbosity, Some(2)))
-        .with_ansi(emit_ansi)
-        .compact()
-        .init();
-    run(args)?;
-    Ok(())
-}
-
-fn main() {
-    let res = main_fallible();
-    if let Err(e) = res {
-        error!("{e}");
-        let bt = request_ref::<std::backtrace::Backtrace>(&e);
-        if let Some(bt) = bt {
-            error!("{bt}");
-        }
-    }
 }

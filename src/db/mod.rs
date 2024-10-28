@@ -115,7 +115,7 @@ pub struct TxRow<'a> {
 
 impl<'a> TxRow<'a> {
     pub fn from_sqlite_row(row: &rusqlite::Row) -> Result<Self> {
-        let mut v = TxRow::from_sqlite_row_partial(&row)?;
+        let mut v = TxRow::from_sqlite_row_partial(row)?;
         let data_str = row.get::<_, String>(7)?;
         let icx_data_str = row.get::<_, String>(8)?;
         if !data_str.is_empty() {
@@ -460,7 +460,7 @@ impl SqliteBlockStore {
         let mut q = stmt.query([])?;
         while let Some(row) = q.next()? {
             let data: &str = row.get_ref(0)?.as_str().map_err(|_| "ref error")?;
-            let block: Result<Block> = serde_json::from_str(&data).map_err(|e| e.into());
+            let block: Result<Block> = serde_json::from_str(data).map_err(|e| e.into());
             f(block)?;
         }
         Ok(())

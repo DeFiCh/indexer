@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use clap::{Parser, Subcommand};
 use std::sync::LazyLock;
 use tracing::Level;
@@ -19,28 +17,23 @@ pub struct Args {
     /// Minimum might be pulled higher.
     pub verbosity: u8,
     #[command(subcommand)]
-    pub cmd: Option<Commands>,
-    #[arg(long, default_value = "defi-cli")]
-    pub defi_cli_path: String,
-    #[arg(long, default_value = "data/index.sqlite")]
-    pub sqlite_path: String,
-    #[arg(long, default_value = "data/debug.log")]
-    pub defid_log_path: String,
-    #[arg(long, default_value = "data/logs")]
-    pub graph_logs_path: String,
-    #[arg(long, default_value = "claim_tx")]
-    pub defid_log_matcher: String,
-    #[arg(short = 's', long, default_value_t = 0)]
-    pub start_height: i64,
-    #[arg(short = 'e', long, default_value_t = 2_000_000)]
-    pub end_height: i64,
-    #[arg(long, default_value_t = true)]
-    pub enable_graph_table: bool,
+    pub command: Cmd,
 }
 
 #[derive(Subcommand, Debug)]
-pub enum Commands {
-    Default,
+pub enum Cmd {
+    /// Index from cli sqlite db
+    #[command(name = "index")]
+    Index(crate::sqliteindexer::IndexArgs),
+    /// Reduce dot graph files
+    #[command(name = "dotreduce")]
+    DotReduce {
+        #[arg(long, default_value = "data/")]
+        data_dir_path: String,
+    },
+    /// Analyze ICX usages
+    #[command(name = "icxanalyze")]
+    ICXAnalyze(crate::icxanalyzer::ICXAnalyzeArgs),
 }
 
 pub fn verbosity_to_level(verbosity: u8, min: Option<u8>) -> Level {

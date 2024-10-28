@@ -1,5 +1,6 @@
 #![feature(error_generic_member_access)]
 
+mod args;
 #[path = "../db/mod.rs"]
 mod db;
 #[path = "../dfiutils.rs"]
@@ -8,9 +9,6 @@ mod dfiutils;
 mod lang;
 #[path = "../models.rs"]
 mod models;
-
-#[path = "../args.rs"]
-mod args;
 
 mod blockindexer;
 mod grapher;
@@ -26,7 +24,6 @@ fn main() -> Result<()> {
     env::set_var("RUST_BACKTRACE", "1");
 
     tracing_subscriber::fmt().compact().with_ansi(false).init();
-
     let args = args::Args::parse();
 
     let mode = 3;

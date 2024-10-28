@@ -1,34 +1,42 @@
-#![feature(error_generic_member_access)]
-
-#[path = "../args.rs"]
-mod args;
-#[path = "../db/mod.rs"]
-mod db;
-#[path = "../dfiutils.rs"]
-mod dfiutils;
-#[path = "../lang.rs"]
-mod lang;
-#[path = "../models.rs"]
-mod models;
-
-use args::{get_args, verbosity_to_level, Args};
+use crate::db;
+use crate::dfiutils;
+use crate::lang;
+use crate::models;
+use clap::Parser;
 use db::{
     sqlite_begin_tx, sqlite_commit_and_begin_tx, sqlite_commit_tx, sqlite_create_index_factory_v2,
     sqlite_get_stmts_v2, SqliteBlockStore,
 };
-use dfiutils::{extract_dfi_addresses, token_id_to_symbol_maybe};
-use lang::Error;
+use dfiutils::{extract_dfi_addresses, token_id_to_symbol_maybe, CliDriver};
 use lang::OptionExt;
 use lang::Result;
-use models::{IcxLogData, IcxTxSet, TxType};
+use models::{Block, IcxLogData, IcxTxSet, TxType};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::{error::request_ref, io::BufRead};
+use std::io::BufRead;
 use tracing::debug;
 use tracing::{error, info};
 
-fn run(args: &Args) -> Result<()> {
+#[derive(Parser, Debug)]
+pub struct IndexArgs {
+    #[arg(long, default_value = "defi-cli")]
+    pub defi_cli_path: String,
+    #[arg(long, default_value = "data/index.sqlite")]
+    pub sqlite_path: String,
+    #[arg(long, default_value = "data/debug.log")]
+    pub defid_log_path: String,
+    #[arg(long, default_value = "claim_tx")]
+    pub defid_log_matcher: String,
+    #[arg(short = 's', long, default_value_t = 0)]
+    pub start_height: i64,
+    #[arg(short = 'e', long, default_value_t = 2_000_000)]
+    pub end_height: i64,
+    #[arg(long, default_value_t = true)]
+    pub enable_graph_table: bool,
+}
+
+pub fn run(args: &IndexArgs) -> Result<()> {
     let db_path = match args.sqlite_path.is_empty() {
         true => None,
         false => Some(args.sqlite_path.as_str()),
@@ -73,18 +81,39 @@ fn run(args: &Args) -> Result<()> {
         info!("icx log file entries: {}", icx_data_map.len());
     }
 
+    let mut cli = CliDriver::with_cli_path(args.defi_cli_path.clone());
     let sql_store = SqliteBlockStore::new_v1(db_path)?;
-    let sql_store2 = SqliteBlockStore::new(Some("/media/pvl/data/defi/index2.sqlite"))?;
 
-    let sconn = &sql_store2.conn;
+    let chain_height = cli.get_block_count()?;
+    let iter_end_height = if chain_height < end_height {
+        chain_height
+    } else {
+        end_height
+    };
+
+    let sconn = &sql_store.conn;
     let mut stmts = sqlite_get_stmts_v2(sconn)?;
     sqlite_begin_tx(sconn)?;
 
-    for height in start_height..end_height {
-        let block = sql_store
-            .get_block_from_height(height)?
-            .ok_or_else(|| Error::from(format!("{}", height)))?;
-        let hash = &block.hash;
+    let mut err = Option::None;
+    for height in start_height..=iter_end_height {
+        // TODO: Abstract this out to a fn so error control is better. For now, handle cli errors
+        let hash = match cli.get_block_hash(height) {
+            Ok(hash) => hash,
+            Err(e) => {
+                err = Some(e);
+                break;
+            }
+        };
+        let block = match cli.get_block(&hash, Some(4)) {
+            Ok(block) => block,
+            Err(e) => {
+                err = Some(e);
+                break;
+            }
+        };
+
+        let block: Block = serde_json::from_value(block)?;
 
         debug!("[{}] hash: {}", height, &hash);
         {
@@ -265,6 +294,10 @@ fn run(args: &Args) -> Result<()> {
         indexer()?;
     }
 
+    if let Some(e) = err {
+        return Err(e);
+    }
+
     info!("done");
     Ok(())
 }
@@ -272,27 +305,4 @@ fn run(args: &Args) -> Result<()> {
 // Just a short convenience alias for internal use.
 fn empty() -> String {
     String::new()
-}
-
-fn main_fallible() -> Result<()> {
-    std::env::set_var("RUST_BACKTRACE", "1");
-    let args = get_args();
-    tracing_subscriber::fmt::fmt()
-        .with_max_level(verbosity_to_level(args.verbosity, Some(2)))
-        .compact()
-        .init();
-    run(args)?;
-
-    Ok(())
-}
-
-fn main() {
-    let res = main_fallible();
-    if let Err(e) = res {
-        error!("{e}");
-        let bt = request_ref::<std::backtrace::Backtrace>(&e);
-        if let Some(bt) = bt {
-            error!("{bt}");
-        }
-    }
 }

@@ -8,11 +8,6 @@ default-run = "dindexer"
 anyhow = "1.0.89"
 clap = { version = "4.5.20", features = ["derive"] }
 rusqlite = { version = "0.32.1", features = ["bundled", "serde_json"] }
-rust-rocksdb = { version = "0.30.0", features = [
-    "io-uring",
-    "jemalloc",
-    "serde",
-] }
 serde = { version = "1.0.210", features = ["serde_derive"] }
 serde_derive = "1.0.210"
 serde_json = "1.0.128"
@@ -24,6 +19,17 @@ petgraph = { version = "0.6.5", features = ["serde", "serde-1"] }
 regex = "1.11.0"
 postcard = { version = "1.0.10", features = ["postcard-derive"] }
 atty = "0.2.14"
+
+# Optionals
+
+rust-rocksdb = { version = "0.30.0", features = [
+    "io-uring",
+    "jemalloc",
+    "serde",
+], optional = true }
+
+# Others
+
 # tokio = { version = "1.40.0", features = ["full"] }
 # im-rc = { version = "15.1.0", features = ["serde"] }
 # rustc-hash = "2.0.0"
@@ -31,3 +37,9 @@ atty = "0.2.14"
 [[bin]]
 name = "legacy"
 path = "src/legacy/main.rs"
+required-features = ["legacy"]
+
+[features]
+legacy = ["legacy-rocks", "legacy-sqlite-v1"]
+legacy-sqlite-v1 = []
+legacy-rocks = ["rust-rocksdb"]

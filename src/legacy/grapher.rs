@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use tracing::info;
 
 use crate::args::Args;
-use crate::db::{encode_height, rocks_open_db, RocksBlockStore};
+use crate::db::rocks::{encode_height, rocks_open_db, RocksBlockStore};
 use crate::dfiutils::extract_all_dfi_addresses;
 use crate::lang::{Error, Result};
 use crate::models::TxType;

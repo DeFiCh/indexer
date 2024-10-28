@@ -1,4 +1,4 @@
-use crate::db::{encode_height, rocks_open_db, RocksBlockStore};
+use crate::db::rocks::{encode_height, rocks_open_db, RocksBlockStore};
 use crate::dfiutils::{fold_addr_val_map, get_txin_addr_val_list, get_txout_addr_val_list};
 use crate::lang::{Error, Result};
 use rust_rocksdb::WriteBatch;

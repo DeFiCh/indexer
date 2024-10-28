@@ -1,7 +1,7 @@
 use rust_rocksdb::WriteBatch;
 use tracing::info;
 
-use crate::db::{encode_height, rocks_compact_db, rocks_open_db, RocksBlockStore};
+use crate::db::rocks::{encode_height, rocks_compact_db, rocks_open_db, RocksBlockStore};
 use crate::dfiutils::CliDriver;
 use crate::lang::{Error, Result};
 

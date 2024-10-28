@@ -1,4 +1,5 @@
 #![feature(error_generic_member_access)]
+#![cfg(feature = "legacy")]
 
 mod args;
 #[path = "../db/mod.rs"]

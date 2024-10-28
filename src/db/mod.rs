@@ -1,15 +1,12 @@
 #![allow(dead_code)]
 
-mod legacy;
+#[cfg(feature = "legacy-rocks")]
+pub mod rocks;
+#[cfg(feature = "legacy-sqlite-v1")]
+pub mod sqlite_v1;
 
 use crate::lang::{Result, ResultExt};
 use crate::models::{Block, IcxTxSet, Transaction};
-
-#[allow(unused_imports)]
-pub use legacy::{
-    encode_height, rocks_compact_db, rocks_get_db_opts, rocks_open_db,
-    sqlite_create_index_factory_v1, sqlite_get_stmts_v1, sqlite_init_db_v1, RocksBlockStore,
-};
 use rusqlite::{params, CachedStatement, Connection, OptionalExtension};
 use std::collections::HashMap;
 
@@ -322,8 +319,9 @@ pub struct SqliteBlockStore {
 }
 
 impl SqliteBlockStore {
+    #[cfg(feature = "legacy-sqlite-v1")]
     pub fn new_v1(path: Option<&str>) -> Result<Self> {
-        let conn = sqlite_init_db_v1(path)?;
+        let conn = crate::db::sqlite_v1::sqlite_init_db_v1(path)?;
         Ok(Self { conn })
     }
 

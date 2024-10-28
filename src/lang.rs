@@ -11,8 +11,6 @@ pub enum Error {
     FromInt(#[from] std::num::TryFromIntError, std::backtrace::Backtrace),
     #[error("parse int: {0}")]
     IntParse(#[from] std::num::ParseIntError, std::backtrace::Backtrace),
-    #[error("rocksdb: {0}")]
-    RocksDB(#[from] rust_rocksdb::Error, std::backtrace::Backtrace),
     #[error("serde json: {0}")]
     Serde(#[from] serde_json::Error, std::backtrace::Backtrace),
     #[error("str utf8: {0}")]
@@ -30,6 +28,9 @@ pub enum Error {
     Sqlite(#[from] rusqlite::Error, std::backtrace::Backtrace),
     #[error("clap error: {0}")]
     Clap(#[from] clap::Error, std::backtrace::Backtrace),
+    #[cfg(feature = "legacy-rocks")]
+    #[error("rocksdb: {0}")]
+    RocksDB(#[from] rust_rocksdb::Error, std::backtrace::Backtrace),
     #[error(transparent)]
     Anyhow(
         #[from]

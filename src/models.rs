@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -37,7 +39,7 @@ pub struct MinterInfo {
     pub stake_modifier: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {
     pub txid: String,
@@ -137,12 +139,12 @@ pub struct IcxLogData {
     pub amount: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct IcxTxSet<'a> {
-    pub order_tx: &'a str,
-    pub offer_tx: &'a str,
-    pub dfchtlc_tx: &'a str,
-    pub claim_tx: &'a str,
+    pub order_tx: Cow<'a, str>,
+    pub offer_tx: Cow<'a, str>,
+    pub dfchtlc_tx: Cow<'a, str>,
+    pub claim_tx: Cow<'a, str>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -182,6 +184,7 @@ impl From<&str> for TxType {
         use TxType::*;
         match value {
             "_" => Unknown,
+            "cb" => Coinbase,
             "utxo" => Utxo,
             "CreateMasternode" => CreateMasternode,
             "ResignMasternode" => ResignMasternode,

@@ -1,9 +1,14 @@
 #![feature(error_generic_member_access)]
 
+#[path = "../args.rs"]
 mod args;
+#[path = "../db.rs"]
 mod db;
+#[path = "../dfiutils.rs"]
 mod dfiutils;
+#[path = "../lang.rs"]
 mod lang;
+#[path = "../models.rs"]
 mod models;
 
 use args::{get_args, verbosity_to_level, Args};
@@ -11,10 +16,11 @@ use db::{
     sqlite_begin_tx, sqlite_commit_and_begin_tx, sqlite_commit_tx, sqlite_create_index_factory_v2,
     sqlite_get_stmts_v2, SqliteBlockStore,
 };
-use dfiutils::{extract_dfi_addresses, token_id_to_symbol_maybe, CliDriver};
+use dfiutils::{extract_dfi_addresses, token_id_to_symbol_maybe};
+use lang::Error;
 use lang::OptionExt;
 use lang::Result;
-use models::{Block, IcxLogData, IcxTxSet, TxType};
+use models::{IcxLogData, IcxTxSet, TxType};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -67,39 +73,18 @@ fn run(args: &Args) -> Result<()> {
         info!("icx log file entries: {}", icx_data_map.len());
     }
 
-    let mut cli = CliDriver::with_cli_path(args.defi_cli_path.clone());
     let sql_store = SqliteBlockStore::new(db_path)?;
+    let sql_store2 = SqliteBlockStore::new2(Some("/media/pvl/data/defi/index2.sqlite"))?;
 
-    let chain_height = cli.get_block_count()?;
-    let iter_end_height = if chain_height < end_height {
-        chain_height
-    } else {
-        end_height
-    };
-
-    let sconn = &sql_store.conn;
+    let sconn = &sql_store2.conn;
     let mut stmts = sqlite_get_stmts_v2(sconn)?;
     sqlite_begin_tx(sconn)?;
 
-    let mut err = Option::None;
-    for height in start_height..=iter_end_height {
-        // TODO: Abstract this out to a fn so error control is better. For now, handle cli errors
-        let hash = match cli.get_block_hash(height) {
-            Ok(hash) => hash,
-            Err(e) => {
-                err = Some(e);
-                break;
-            }
-        };
-        let block = match cli.get_block(&hash, Some(4)) {
-            Ok(block) => block,
-            Err(e) => {
-                err = Some(e);
-                break;
-            }
-        };
-
-        let block: Block = serde_json::from_value(block)?;
+    for height in start_height..end_height {
+        let block = sql_store
+            .get_block_from_height(height)?
+            .ok_or_else(|| Error::from(format!("{}", height)))?;
+        let hash = &block.hash;
 
         debug!("[{}] hash: {}", height, &hash);
         {
@@ -278,10 +263,6 @@ fn run(args: &Args) -> Result<()> {
         }
         info!("creating index: {}..", name);
         indexer()?;
-    }
-
-    if let Some(e) = err {
-        return Err(e);
     }
 
     info!("done");

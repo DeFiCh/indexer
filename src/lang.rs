@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::convert::Infallible;
+use std::{convert::Infallible, num::ParseFloatError};
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
@@ -17,6 +17,8 @@ pub enum Error {
     Serde(#[from] serde_json::Error, std::backtrace::Backtrace),
     #[error("str utf8: {0}")]
     StrUtf8(#[from] std::str::Utf8Error, std::backtrace::Backtrace),
+    #[error("parse float: {0}")]
+    ParseFloat(#[from] ParseFloatError, std::backtrace::Backtrace),
     #[error("string utf8: {0}")]
     StringUtf8(
         #[from] std::string::FromUtf8Error,
@@ -25,7 +27,7 @@ pub enum Error {
     #[error("io err: {0}")]
     Io(#[from] std::io::Error, std::backtrace::Backtrace),
     #[error("sqlite error: {0}")]
-    SQLite(#[from] rusqlite::Error, std::backtrace::Backtrace),
+    Sqlite(#[from] rusqlite::Error, std::backtrace::Backtrace),
     #[error("clap error: {0}")]
     Clap(#[from] clap::Error, std::backtrace::Backtrace),
     #[error(transparent)]

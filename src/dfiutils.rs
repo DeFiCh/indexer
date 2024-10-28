@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 
-use tracing::{error, warn};
-
 use crate::db::BlockStore;
 use crate::lang::Error;
 use crate::models::{Transaction, Vin, VinStandard, Vout};
 use crate::Result;
 use std::collections::{HashMap, HashSet};
 use std::process::{Command, Output};
+use tracing::warn;
 
 #[derive(Debug)]
 pub struct CliDriver {
@@ -74,7 +73,7 @@ impl CliDriver {
     }
 }
 
-pub fn extract_dfi_addresses(json_haystack: &str) -> Vec<String> {
+pub fn extract_dfi_addresses(json_haystack: &str) -> HashSet<String> {
     use std::sync::LazyLock;
     static DFI_ADDRESS_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
         let r1 = r#""(d|7|8)[1-9A-HJ-NP-Za-km-z]{25,34}""#; // legacy
@@ -87,8 +86,6 @@ pub fn extract_dfi_addresses(json_haystack: &str) -> Vec<String> {
         .captures_iter(json_haystack)
         .map(|x| x[0].trim_matches('\"').to_string()) // remove quotes
         .collect::<HashSet<_>>() // unique
-        .into_iter()
-        .collect()
 }
 
 #[test]
@@ -124,7 +121,10 @@ fn test_extract_dfi_addresses() {
     ]
     .sort();
 
-    let addresses = extract_dfi_addresses(json_haystack).sort();
+    let addresses = extract_dfi_addresses(json_haystack)
+        .into_iter()
+        .collect::<Vec<_>>()
+        .sort();
     assert_eq!(addresses, expected);
 }
 
@@ -150,21 +150,7 @@ pub fn get_txin_addr_val_list(
     let map_fn = |x: VinStandard| {
         let tx_id = x.txid;
         let tx = block_store.get_tx_from_hash(&tx_id);
-        let tx = tx?.ok_or_else(|| {
-            error!("tx hash not found: {}", &tx_id);
-            let z = block_store.get_block_for_tx(&tx_id);
-            if z.is_err() {
-                error!("tx block err");
-            } else {
-                let z = z.unwrap();
-                if let Some(b) = z {
-                    warn!("tx block found however: {}", b.hash);
-                } else {
-                    error!("block not found either");
-                }
-            }
-            Error::from(format!("tx hash not found: {}", &tx_id))
-        })?;
+        let tx = tx?.ok_or_else(|| Error::from(format!("tx hash not found: {}", &tx_id)))?;
         let utxo = tx
             .vout
             .iter()

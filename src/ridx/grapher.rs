@@ -105,7 +105,9 @@ pub fn graph_it(args: Args) -> Result<()> {
             ) {
                 let t = tx_type.clone().unwrap();
                 let dvm_data = x.vm.as_ref().map(|x| x.msg.to_string()).unwrap();
-                dvm_addrs = extract_dfi_addresses(&dvm_data);
+                dvm_addrs = extract_dfi_addresses(&dvm_data)
+                    .into_iter()
+                    .collect::<Vec<_>>();
 
                 if t == TxType::ICXMakeOffer
                     || t == TxType::ICXCloseOffer

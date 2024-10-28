@@ -2,8 +2,8 @@
 
 use std::borrow::Cow;
 
-use im_rc::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

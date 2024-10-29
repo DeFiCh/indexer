@@ -2,20 +2,41 @@
 
 Indexer for offline analysis of on-chain data.
 
-Run with:
-  - `cargo run --release --bin dindexer -- --help`
-  - `cargo run --release --bin ridx -- --help` (Currently needed for most of the pipleline. Edit: No longer needed)
+## Notes
 
-Sequences:
-  - Run ridx to build minimal (block) index with cli indexer connecting only to defid
-  - Run ridx with txindexer to index transactions
-  - Run grapher, etc on rocksdb
-  - Build sqlite indexes from rocksdb indexes
+- Build a full index with only the blockchain node as the source.
+  - Supports building rockdb datastore or SQLite store.
+- Amends additional data from the source of truth (node consensus logs) to amend additional data like ICX
+- Tools to explore the data and generate various different graphs of the large data set.
 
-TODO:
-  - [Done] Build the sqlite indexes directly from CLI and remove rocksdb
-  - Graph reducer and more graph stuff.
+## Usage
 
-### Notes
+```
+Usage: dindexer [OPTIONS] <COMMAND>
 
-- This is code written in a rush for specific requirements. Has all the pieces, but will likely require cleanup and refactoring to be generalized.
+Commands:
+  index
+          Index from cli sqlite db
+  dotreduce
+          Reduce dot graph files
+  icx1
+          Analyze ICX addr usages
+  graph
+          Build full graph
+  graphexp
+          Load and explore full graph
+  graphdot
+          Load the full graph, condense it and output dot files
+  help
+          Print this message or the help of the given subcommand(s)
+
+Options:
+  -v, --verbosity...
+          Can be called multiple times to increase level. (0-4).
+  -h, --help
+          Print help (see more with '--help')
+  -V, --version
+          Print version
+```
+
+See help for each command for more instructions.

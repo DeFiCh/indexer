@@ -1,11 +1,13 @@
 use std::str::FromStr;
 
-use crate::lang::{OptionExt, Result, ResultExt};
-use crate::models;
-use crate::{db::SqliteBlockStore, models::TxType};
+use crate::{
+    db::SqliteBlockStore,
+    lang::{OptionExt, Result},
+    models::TxType,
+};
 use anyhow::Context;
 use clap::Parser;
-use petgraph::visit::{EdgeRef, IntoNeighborsDirected};
+use petgraph::visit::EdgeRef;
 use tracing::{debug, error, info, trace};
 
 #[derive(Parser, Debug)]
@@ -156,8 +158,8 @@ pub fn run(args: &GraphWalkArgs) -> Result<()> {
 
                 if graph_mark_addr_list.binary_search(&dst).is_ok() {
                     info!(
-                        "MARK: found: height: {}, tx: {}, src: {}, dst: {}, txtype: {}",
-                        tx.height, txid, src, dst, tx.tx_type
+                        "MARK: found: lvl:{}, height: {}, tx: {}, src: {}, dst: {}, txtype: {}",
+                        level, tx.height, txid, src, dst, tx.tx_type
                     );
                 }
 
@@ -219,17 +221,12 @@ pub fn load_graph(
     info!("loading graph metadata from {}..", meta_path);
     let f = std::fs::File::open(meta_path)?;
     let node_index_map: std::collections::HashMap<String, petgraph::graph::NodeIndex> =
-        bincode::deserialize_from(f).map_err(|e| {
-            error!("{:?}", e);
-            "bincode err"
-        })?;
+        bincode::deserialize_from(f).context("meta bincode err")?;
 
     info!("loading graph data from {}..", data_path);
     let f = std::fs::File::open(data_path)?;
-    let g: petgraph::Graph<String, String> = bincode::deserialize_from(f).map_err(|e| {
-        error!("{:?}", e);
-        "bincode err"
-    })?;
+    let g: petgraph::Graph<String, String> =
+        bincode::deserialize_from(f).context("g bincode err")?;
 
     info!(
         "loaded graph with {} nodes and {} edges",

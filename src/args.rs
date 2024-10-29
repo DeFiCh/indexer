@@ -42,6 +42,9 @@ pub enum Cmd {
     /// Load the full graph, condense it and output dot files
     #[command(name = "graphdot")]
     GraphDot(crate::graphdot::GraphDotArgs),
+    /// Find paths between 2 addresses
+    #[command(name = "graphpath")]
+    GraphPath(crate::graphpath::GraphPathArgs),
 }
 
 pub fn verbosity_to_level(verbosity: u8, min: Option<u8>) -> Level {

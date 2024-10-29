@@ -1,7 +1,8 @@
 use crate::db::SqliteBlockStore;
 use crate::lang::Result;
+use anyhow::Context;
 use clap::Parser;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 
 #[derive(Parser, Debug)]
 pub struct GraphDotArgs {
@@ -55,17 +56,12 @@ pub fn load_graph(
     info!("loading graph metadata from {}..", meta_path);
     let f = std::fs::File::open(meta_path)?;
     let node_index_map: std::collections::HashMap<String, petgraph::graph::NodeIndex> =
-        bincode::deserialize_from(f).map_err(|e| {
-            error!("{:?}", e);
-            "bincode err"
-        })?;
+        bincode::deserialize_from(f).context("meta bincode deser err")?;
 
     info!("loading graph data from {}..", data_path);
     let f = std::fs::File::open(data_path)?;
-    let g: petgraph::Graph<String, String> = bincode::deserialize_from(f).map_err(|e| {
-        error!("{:?}", e);
-        "bincode err"
-    })?;
+    let g: petgraph::Graph<String, String> =
+        bincode::deserialize_from(f).context("g bincode deser err")?;
 
     info!(
         "loaded graph with {} nodes and {} edges",

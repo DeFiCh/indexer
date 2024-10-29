@@ -6,6 +6,7 @@ mod dfiutils;
 mod dotreducer;
 mod graphdot;
 mod grapher;
+mod graphpath;
 mod graphwalker;
 mod icxanalyzer;
 mod lang;
@@ -37,6 +38,7 @@ fn main_fallible() -> Result<()> {
         Cmd::Graph(a) => grapher::run(a)?,
         Cmd::GraphWalk(a) => graphwalker::run(a)?,
         Cmd::GraphDot(a) => graphdot::run(a)?,
+        Cmd::GraphPath(a) => graphpath::run(a)?,
     }
     Ok(())
 }

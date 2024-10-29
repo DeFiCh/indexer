@@ -1,5 +1,6 @@
 use crate::db::SqliteBlockStore;
 use crate::lang::Result;
+use anyhow::Context;
 use clap::Parser;
 use std::collections::HashSet;
 use tracing::{debug, error, info};
@@ -137,17 +138,11 @@ fn dump_graph_data(
     );
     info!("writing graph metadata to {}..", meta_path);
     let f = std::fs::File::create(meta_path)?;
-    bincode::serialize_into(f, &node_index_map).map_err(|e| {
-        error!("{:?}", e);
-        "bincode err"
-    })?;
+    bincode::serialize_into(f, &node_index_map).context("meta bincode ser err")?;
     // serde_json::to_writer(f, &node_index_map)?;
     info!("writing graph data to {}..", data_path);
     let f = std::fs::File::create(data_path)?;
-    bincode::serialize_into(f, &g).map_err(|e| {
-        error!("{:?}", e);
-        "bincode err"
-    })?;
+    bincode::serialize_into(f, &g).context("g bincode ser err")?;
     // serde_json::to_writer(f, &g)?;
     info!("done");
     Ok(())

@@ -5,7 +5,6 @@ use tracing::Level;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about=None, propagate_version=true, next_line_help(true))]
 pub struct Args {
-    #[arg(short, long, action = clap::ArgAction::Count, verbatim_doc_comment)]
     /// Can be called multiple times to increase level. (0-4).
     ///
     /// 0: Error
@@ -15,11 +14,11 @@ pub struct Args {
     /// 4: Trace
     ///
     /// Minimum might be pulled higher.
+    #[arg(global = true, short, long, action = clap::ArgAction::Count, verbatim_doc_comment)]
     pub verbosity: u8,
     #[command(subcommand)]
     pub command: Cmd,
 }
-
 #[derive(Subcommand, Debug)]
 pub enum Cmd {
     /// Index from cli sqlite db
@@ -31,12 +30,18 @@ pub enum Cmd {
         #[arg(long = "in")]
         in_file: String,
     },
-    /// Analyze ICX usages
-    #[command(name = "icxanalyze")]
+    /// Analyze ICX addr usages
+    #[command(name = "icx1")]
     ICXAnalyze(crate::icxanalyzer::ICXAnalyzeArgs),
     /// Build full graph
     #[command(name = "graph")]
     Graph(crate::grapher::GrapherArgs),
+    /// Load and explore full graph
+    #[command(name = "graphexp")]
+    GraphExp(crate::graphexplorer::GraphExpArgs),
+    /// Load the full graph, condense it and output dot files
+    #[command(name = "graphdot")]
+    GraphDot(crate::graphdot::GraphDotArgs),
 }
 
 pub fn verbosity_to_level(verbosity: u8, min: Option<u8>) -> Level {

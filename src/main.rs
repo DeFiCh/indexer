@@ -4,7 +4,9 @@ mod args;
 mod db;
 mod dfiutils;
 mod dotreducer;
+mod graphdot;
 mod grapher;
+mod graphexplorer;
 mod icxanalyzer;
 mod lang;
 mod models;
@@ -16,7 +18,7 @@ use std::error::request_ref;
 use tracing::error;
 
 fn main_fallible() -> Result<()> {
-    // std::env::set_var("RUST_BACKTRACE", "1");
+    std::env::set_var("RUST_BACKTRACE", "1");
     let args = get_args();
     let emit_ansi = atty::is(atty::Stream::Stdout);
 
@@ -27,18 +29,14 @@ fn main_fallible() -> Result<()> {
         .init();
 
     match &args.command {
-        Cmd::Index(a) => {
-            sqliteindexer::run(a)?;
-        }
+        Cmd::Index(a) => sqliteindexer::run(a)?,
         Cmd::DotReduce { in_file } => {
             dotreducer::run(in_file)?;
         }
-        Cmd::ICXAnalyze(a) => {
-            icxanalyzer::run(a)?;
-        }
-        Cmd::Graph(a) => {
-            grapher::run(a)?;
-        }
+        Cmd::ICXAnalyze(a) => icxanalyzer::run(a)?,
+        Cmd::Graph(a) => grapher::run(a)?,
+        Cmd::GraphExp(a) => graphexplorer::run(a)?,
+        Cmd::GraphDot(a) => graphdot::run(a)?,
     }
     Ok(())
 }

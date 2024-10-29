@@ -499,4 +499,17 @@ impl SqliteBlockStore {
         }
         Ok(())
     }
+
+    pub fn get_tx_data(&self, txid: &str) -> Result<Option<TxRow>> {
+        let mut stmt = self
+            .conn
+            .prepare_cached("SELECT * FROM txs WHERE txid = ?1")?;
+        let tx_row = stmt
+            .query_row(
+                params![txid],
+                |row| Ok(TxRow::from_sqlite_row(row).unwrap()),
+            )
+            .optional()?;
+        Ok(tx_row)
+    }
 }

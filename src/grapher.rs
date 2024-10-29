@@ -22,8 +22,9 @@ pub fn run(args: &GrapherArgs) -> Result<()> {
     debug!("args: {:?}", args);
 
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let user_sig = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, std::sync::Arc::clone(&quit))?;
+    let user_sig = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    #[cfg(unix)]
     signal_hook::flag::register(
         signal_hook::consts::SIGUSR1,
         std::sync::Arc::clone(&user_sig),

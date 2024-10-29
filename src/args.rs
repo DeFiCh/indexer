@@ -37,8 +37,8 @@ pub enum Cmd {
     #[command(name = "graph")]
     Graph(crate::grapher::GrapherArgs),
     /// Load and explore full graph
-    #[command(name = "graphexp")]
-    GraphExp(crate::graphexplorer::GraphExpArgs),
+    #[command(name = "graphwalk")]
+    GraphWalk(crate::graphwalker::GraphWalkArgs),
     /// Load the full graph, condense it and output dot files
     #[command(name = "graphdot")]
     GraphDot(crate::graphdot::GraphDotArgs),

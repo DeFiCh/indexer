@@ -6,7 +6,7 @@ mod dfiutils;
 mod dotreducer;
 mod graphdot;
 mod grapher;
-mod graphexplorer;
+mod graphwalker;
 mod icxanalyzer;
 mod lang;
 mod models;
@@ -35,7 +35,7 @@ fn main_fallible() -> Result<()> {
         }
         Cmd::ICXAnalyze(a) => icxanalyzer::run(a)?,
         Cmd::Graph(a) => grapher::run(a)?,
-        Cmd::GraphExp(a) => graphexplorer::run(a)?,
+        Cmd::GraphWalk(a) => graphwalker::run(a)?,
         Cmd::GraphDot(a) => graphdot::run(a)?,
     }
     Ok(())

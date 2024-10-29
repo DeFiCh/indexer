@@ -111,20 +111,22 @@ fn test_extract_dfi_addresses() {
             }
         "#;
 
-    let expected = vec![
+    let mut expected = vec![
         "8J6KKxHQAWDJDR1PQfC46ocgmxTvtLLc6R",
         "df1qqvaqshw0hrjzakxms27xrk6npfef4sx6cqaejv",
         "dazewCkFnaw4o67RQrS5FATMKy9mAcohNA",
         "dZcuogFeLxy5NLFZnShYiX2sp9M6vv6UKj",
         "8aQxUdEUxiffqxy4eqqepYMdPUw3sGQiA2",
         "8eG9Pe1wQnWZuXD5NRr3QaxDex9RJ99fd5",
-    ]
-    .sort();
+    ];
 
-    let addresses = extract_all_dfi_addresses(json_haystack)
+    expected.sort();
+
+    let mut addresses = extract_all_dfi_addresses(json_haystack)
         .into_iter()
-        .collect::<Vec<_>>()
-        .sort();
+        .collect::<Vec<_>>();
+
+    addresses.sort();
     assert_eq!(addresses, expected);
 }
 

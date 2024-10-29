@@ -2,7 +2,7 @@ use crate::db::SqliteBlockStore;
 use crate::lang::Result;
 use anyhow::Context;
 use clap::Parser;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 #[derive(Parser, Debug)]
 pub struct GraphDotArgs {
@@ -30,8 +30,8 @@ pub fn run(args: &GraphDotArgs) -> Result<()> {
         std::sync::Arc::clone(&user_sig),
     )?;
 
-    let sql_store = SqliteBlockStore::new_v2(Some(&args.sqlite_path))?;
-    let (g, node_index_map) = load_graph(&args.graph_meta_path, &args.graph_data_path)?;
+    let _sql_store = SqliteBlockStore::new_v2(Some(&args.sqlite_path))?;
+    let (g, _node_index_map) = load_graph(&args.graph_meta_path, &args.graph_data_path)?;
     let gx = petgraph::algo::condensation(g, true);
 
     info!(

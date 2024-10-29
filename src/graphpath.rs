@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::Context;
 use clap::Parser;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 #[derive(Parser, Debug)]
 pub struct GraphPathArgs {
@@ -59,8 +59,8 @@ pub fn run(args: &GraphPathArgs) -> Result<()> {
                 let edge = g.find_edge(node_idx[0], node_idx[1]).context("find_edge")?;
                 let tx_id = g.edge_weight(edge).context("edge_weight")?;
 
-                let tx = sql_store.get_tx_data(&tx_id)?.ok_or_err()?;
-                let tx_type = TxType::from_display(&tx.tx_type.as_str());
+                let tx = sql_store.get_tx_data(tx_id)?.ok_or_err()?;
+                let tx_type = TxType::from_display(tx.tx_type.as_str());
 
                 info!(
                     "[{}] {}: {} -> {} (tx: {})",

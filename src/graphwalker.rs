@@ -83,10 +83,8 @@ pub fn run(args: &GraphWalkArgs) -> Result<()> {
         let tx = tx?;
         if tx.tx_type == TxType::ICXClaimDFCHTLC.to_string() {
             let icx_addr = tx.icx_addr;
-            if !icx_addr.is_empty() {
-                if !icx_ignore_list.contains(&icx_addr) {
-                    icx_txs.insert(tx.txid.clone());
-                }
+            if !icx_addr.is_empty() && !icx_ignore_list.contains(&icx_addr) {
+                icx_txs.insert(tx.txid.clone());
             }
         }
         Ok(())
@@ -146,8 +144,8 @@ pub fn run(args: &GraphWalkArgs) -> Result<()> {
             }
             visited.insert(current_node);
 
-            let mut edges = g.edges(current_node);
-            while let Some(x) = edges.next() {
+            let edges = g.edges(current_node);
+            for x in edges {
                 let txid = g.edge_weight(x.id()).context("edge_weight")?;
                 let src = g.node_weight(x.source()).context("node_weight")?;
                 let dst = g.node_weight(x.target()).context("node_weight")?;
@@ -156,14 +154,14 @@ pub fn run(args: &GraphWalkArgs) -> Result<()> {
                 let tx = sql_store.get_tx_data(txid)?.ok_or_err()?;
                 let tx_type = TxType::from_display(tx.tx_type.as_str());
 
-                if graph_mark_addr_list.binary_search(&dst).is_ok() {
+                if graph_mark_addr_list.binary_search(dst).is_ok() {
                     info!(
                         "MARK: found: lvl:{}, height: {}, tx: {}, src: {}, dst: {}, txtype: {}",
                         level, tx.height, txid, src, dst, tx.tx_type
                     );
                 }
 
-                if graph_ignore_addr_list.binary_search(&dst).is_ok() {
+                if graph_ignore_addr_list.binary_search(dst).is_ok() {
                     continue;
                 }
 

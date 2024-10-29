@@ -1,4 +1,7 @@
+use std::str::FromStr;
+
 use crate::lang::{OptionExt, Result, ResultExt};
+use crate::models;
 use crate::{db::SqliteBlockStore, models::TxType};
 use anyhow::Context;
 use clap::Parser;
@@ -13,10 +16,17 @@ pub struct GraphExpArgs {
     pub graph_data_path: String,
     #[arg(long, default_value = "data/graph.meta.bin")]
     pub graph_meta_path: String,
-    #[arg(short = 's', long, default_value_t = 0)]
-    pub start_height: i64,
-    #[arg(short = 'e', long, default_value_t = 2_000_000)]
-    pub end_height: i64,
+    /// Address that's the origin (center point) of the graph exploration
+    #[arg(long, short = 'a')]
+    pub addr: String,
+    /// ICX addresses to ignore for co-relation
+    #[arg(
+        long,
+        use_value_delimiter = true,
+        value_delimiter = ',',
+        default_value = ""
+    )]
+    pub icx_ignore_addr: Vec<String>,
 }
 
 pub fn run(args: &GraphExpArgs) -> Result<()> {
@@ -33,21 +43,13 @@ pub fn run(args: &GraphExpArgs) -> Result<()> {
     let sql_store = SqliteBlockStore::new_v2(Some(&args.sqlite_path))?;
     let (g, node_index_map) = load_graph(&args.graph_meta_path, &args.graph_data_path)?;
 
-    info!("build reserve index map..");
-    let reversed_index_map: std::collections::HashMap<petgraph::graph::NodeIndex, String> =
-        node_index_map
-            .iter()
-            .map(|(k, v)| (*v, k.clone()))
-            .collect();
-
     // ICX txs
     info!("get all icx txs..");
     let mut icx_txs = std::collections::HashSet::<String>::new();
-    let icx_ignore_list = vec![
-        "8UpCwMVVLk5BostLmG8wghN6haTcJZksv9", // mapped
-        "8Xupw3sD33NKS3n3KXMZUVeQdNbPBJ1ttM", // mapped
-        "8cDSPjDe7HqvzmSL33xCrcrvBbUcmkTSpg", // bot
-    ];
+    let icx_ignore_list = args
+        .icx_ignore_addr
+        .iter()
+        .collect::<std::collections::HashSet<_>>();
     let r = sql_store.iter_txs_partial(Some("where tx_type = \"icx-claim\""), |tx| {
         if quit.load(std::sync::atomic::Ordering::Relaxed) {
             info!("int: early exit");
@@ -57,7 +59,7 @@ pub fn run(args: &GraphExpArgs) -> Result<()> {
         if tx.tx_type == TxType::ICXClaimDFCHTLC.to_string() {
             let icx_addr = tx.icx_addr;
             if !icx_addr.is_empty() {
-                if !icx_ignore_list.contains(&icx_addr.as_str()) {
+                if !icx_ignore_list.contains(&icx_addr) {
                     icx_txs.insert(tx.txid.clone());
                 }
             }
@@ -75,7 +77,6 @@ pub fn run(args: &GraphExpArgs) -> Result<()> {
         trace!("icx_txs: {:?}", icx_txs);
     }
 
-    let src_addr1 = "";
     // info!("condense graph..");
     // let gx = petgraph::algo::condensation(g, true);
     // info!(
@@ -84,21 +85,91 @@ pub fn run(args: &GraphExpArgs) -> Result<()> {
     //     gx.edge_count()
     // );
 
-    // We can run page rank to find the areas of interest, weekly connected components, etc
+    // Can now run exploratory algorithms like page rank to find the areas of interest, weekly connected components, etc
+    // Already have many of these mapped out through both runs of several algo as well as inferences generated
+    // from the icxanalyzer. We can just plug some of these addresses in to find the paths.
+
+    let src_addr1 = &args.addr;
 
     let addr1_index = node_index_map.get(src_addr1).context("node_index_map")?;
-    let edges = g.edges(*addr1_index);
     info!("iter edges..");
 
-    for x in edges {
-        let txid = g.edge_weight(x.id()).context("edge_weight")?;
-        let src = g.node_weight(x.source()).context("node_weight")?;
-        let dst = g.node_weight(x.target()).context("node_weight")?;
-        info!("edge: {:?} -> {:?} ({})", src, dst, txid);
-        let tx = sql_store.get_tx_data(txid)?.ok_or_err()?;
-    }
+    let mut total_icx = bigdecimal::BigDecimal::from(0);
+    let mut total_btc_swaps = bigdecimal::BigDecimal::from(0);
 
-    info!("complete..");
+    let max_levels = 20;
+    let mut visited = std::collections::HashSet::new();
+    let mut current_level = vec![*addr1_index];
+
+    for level in 0..max_levels {
+        info!("running level: {}", level);
+        let mut next_level = Vec::new();
+
+        if quit.load(std::sync::atomic::Ordering::Relaxed) {
+            info!("int: early exit");
+            return Err("interrupted".into());
+        }
+
+        for &current_node in current_level.iter() {
+            if quit.load(std::sync::atomic::Ordering::Relaxed) {
+                info!("int: early exit");
+                return Err("interrupted".into());
+            }
+
+            if visited.contains(&current_node) {
+                continue;
+            }
+            visited.insert(current_node);
+
+            let mut edges = g.edges(current_node);
+            while let Some(x) = edges.next() {
+                let txid = g.edge_weight(x.id()).context("edge_weight")?;
+                let src = g.node_weight(x.source()).context("node_weight")?;
+                let dst = g.node_weight(x.target()).context("node_weight")?;
+                // info!("edge: {:?} -> {:?} ({})", src, dst, txid);
+                let tx = sql_store.get_tx_data(txid)?.ok_or_err()?;
+                let tx_type = TxType::from_display(tx.tx_type.as_str());
+                match tx_type {
+                    TxType::PoolSwap => {
+                        if tx.swap_from == "btc" {
+                            let v = bigdecimal::BigDecimal::from_str(&tx.swap_amt).unwrap();
+                            total_btc_swaps += v;
+                            info!(
+                                "btc-swap: lvl: {}, height: {}, from: {}, to: {} / {}, amt: {} // btc_sum: {}",
+                                level, tx.height, src, dst, tx.swap_to, tx.swap_amt, total_btc_swaps
+                            );
+                        }
+                    }
+                    TxType::ICXClaimDFCHTLC => {
+                        let v = bigdecimal::BigDecimal::from_str(&tx.icx_btc_exp_amt);
+                        match v {
+                            Ok(v) => {
+                                total_icx += v;
+                            }
+                            Err(e) => {
+                                error!(
+                                    "icx_btc_exp_amt: {:?} // {}, {}",
+                                    e, tx.txid, tx.icx_btc_exp_amt
+                                );
+                            }
+                        }
+                        info!(
+                            "icx: lvl: {}, height: {}, from: {}, to: {}, tx: {}, icx_to: {}, amt: {} // icx_sum: {}",
+                            level, tx.height, src, dst, tx.txid, tx.icx_addr, tx.icx_btc_exp_amt, total_icx
+                        );
+                    }
+                    _ => {}
+                }
+                next_level.push(x.target());
+            }
+        }
+
+        if next_level.is_empty() {
+            break;
+        }
+        current_level = next_level;
+    }
+    info!("complete");
     Ok(())
 }
 

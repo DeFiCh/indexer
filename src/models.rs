@@ -253,6 +253,41 @@ impl std::fmt::Display for TxType {
     }
 }
 
+impl TxType {
+    pub fn from_display(s: &str) -> Self {
+        match s {
+            "_" => TxType::Unknown,
+            "cb" => TxType::Coinbase,
+            "u" => TxType::Utxo,
+            "au" => TxType::AutoAuth,
+            "+a" => TxType::UtxosToAccount,
+            "-a" => TxType::AccountToUtxos,
+            "aa" => TxType::AccountToAccount,
+            "ax" => TxType::AnyAccountsToAccounts,
+            "+m" => TxType::CreateMasternode,
+            "-m" => TxType::ResignMasternode,
+            "ps" => TxType::PoolSwap,
+            "cs" => TxType::CompositeSwap,
+            "+p" => TxType::AddPoolLiquidity,
+            "-p" => TxType::RemovePoolLiquidity,
+            "v-" => TxType::WithdrawFromVault,
+            "v+" => TxType::DepositToVault,
+            "l-" => TxType::PaybackLoan,
+            "l+" => TxType::TakeLoan,
+            "vn" => TxType::Vault,
+            "+o" => TxType::SetOracleData,
+            "icx-start" => TxType::ICXCreateOrder,
+            "icx-of" => TxType::ICXMakeOffer,
+            "icx-sdfc" => TxType::ICXSubmitDFCHTLC,
+            "icx-sbtc" => TxType::ICXSubmitEXTHTLC,
+            "icx-claim" => TxType::ICXClaimDFCHTLC,
+            "icx-endor" => TxType::ICXCloseOrder,
+            "icx-endof" => TxType::ICXCloseOffer,
+            other => TxType::Other(other.to_owned()),
+        }
+    }
+}
+
 type TokenAmount = String;
 
 // vm":{"vmtype":"dvm","txtype":"UtxosToAccount","msg":{"8RbpgySS2qkXQG2UosQCqADtS7zRAr8bx5":"60000.00000000@0"}}}

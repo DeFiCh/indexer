@@ -138,10 +138,12 @@ fn dump_graph_data(
     );
     info!("writing graph metadata to {}..", meta_path);
     let f = std::fs::File::create(meta_path)?;
+    let f = std::io::BufWriter::with_capacity(1 << 26, f); // 64mb
     bincode::serialize_into(f, &node_index_map).context("meta bincode ser err")?;
     // serde_json::to_writer(f, &node_index_map)?;
     info!("writing graph data to {}..", data_path);
     let f = std::fs::File::create(data_path)?;
+    let f = std::io::BufWriter::with_capacity(1 << 26, f); // 64mb
     bincode::serialize_into(f, &g).context("g bincode ser err")?;
     // serde_json::to_writer(f, &g)?;
     info!("done");

@@ -11,11 +11,13 @@ pub fn load_graph(
 )> {
     info!("loading graph metadata from {}..", meta_path);
     let f = std::fs::File::open(meta_path)?;
+    let f = std::io::BufReader::with_capacity(1 << 26, f); // 64mb
     let node_index_map: std::collections::HashMap<String, petgraph::graph::NodeIndex> =
         bincode::deserialize_from(f).context("meta bincode err")?;
 
     info!("loading graph data from {}..", data_path);
     let f = std::fs::File::open(data_path)?;
+    let f = std::io::BufReader::with_capacity(1 << 31, f); // 2gb
     let g: petgraph::Graph<String, String> =
         bincode::deserialize_from(f).context("g bincode err")?;
 

@@ -18,10 +18,22 @@ pub struct ShortestPathArgs {
     #[arg(long, default_value = "data/graph.meta.bin")]
     pub graph_meta_path: String,
     /// Source address
-    #[arg(long, short = 'a', num_args = 1..)]
+    #[arg(
+        long,
+        short = 'a',
+        required = true,
+        use_value_delimiter = true,
+        value_delimiter = ','
+    )]
     pub src_addrs: Vec<String>,
     /// Dest address
-    #[arg(long, short = 'd', num_args = 1..)]
+    #[arg(
+        long,
+        short = 'd',
+        required = true,
+        use_value_delimiter = true,
+        value_delimiter = ','
+    )]
     pub dest_addrs: Vec<String>,
 }
 
@@ -41,10 +53,14 @@ pub fn run(args: &ShortestPathArgs) -> Result<()> {
 
     for src in src_addrs.iter() {
         for dest in dest_addrs.iter() {
+            if quit.load(std::sync::atomic::Ordering::Relaxed) {
+                info!("int: early exit");
+                return Err("interrupted".into());
+            }
+            info!("finding path: {} -> {}", src, dest);
+
             let src_index = node_index_map.get(src).context("src_index")?;
             let dest_index = node_index_map.get(dest).context("dest_index")?;
-
-            info!("finding path: {} -> {}", src, dest);
 
             let paths = petgraph::algo::astar(
                 &g,

@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use crate::{
     db::SqliteBlockStore,
+    graphutils,
     lang::{OptionExt, Result},
     models::TxType,
 };
@@ -60,7 +61,7 @@ pub fn run(args: &GraphWalkArgs) -> Result<()> {
     )?;
 
     let sql_store = SqliteBlockStore::new_v2(Some(&args.sqlite_path))?;
-    let (g, node_index_map) = load_graph(&args.graph_meta_path, &args.graph_data_path)?;
+    let (g, node_index_map) = graphutils::load_graph(&args.graph_meta_path, &args.graph_data_path)?;
 
     let mut graph_ignore_addr_list = args.graph_ignore_addr.clone();
     graph_ignore_addr_list.sort();
@@ -207,29 +208,4 @@ pub fn run(args: &GraphWalkArgs) -> Result<()> {
     }
     info!("complete");
     Ok(())
-}
-
-pub fn load_graph(
-    meta_path: &str,
-    data_path: &str,
-) -> crate::lang::Result<(
-    petgraph::Graph<String, String>,
-    std::collections::HashMap<String, petgraph::graph::NodeIndex>,
-)> {
-    info!("loading graph metadata from {}..", meta_path);
-    let f = std::fs::File::open(meta_path)?;
-    let node_index_map: std::collections::HashMap<String, petgraph::graph::NodeIndex> =
-        bincode::deserialize_from(f).context("meta bincode err")?;
-
-    info!("loading graph data from {}..", data_path);
-    let f = std::fs::File::open(data_path)?;
-    let g: petgraph::Graph<String, String> =
-        bincode::deserialize_from(f).context("g bincode err")?;
-
-    info!(
-        "loaded graph with {} nodes and {} edges",
-        g.node_count(),
-        g.edge_count()
-    );
-    Ok((g, node_index_map))
 }

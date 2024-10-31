@@ -4,13 +4,15 @@ mod args;
 mod db;
 mod dfiutils;
 mod dotreducer;
+mod gpath;
 mod graphdot;
 mod grapher;
-mod graphpath;
+mod graphutils;
 mod graphwalker;
 mod icxanalyzer;
 mod lang;
 mod models;
+mod spath;
 mod sqliteindexer;
 
 use crate::lang::Result;
@@ -38,7 +40,8 @@ fn main_fallible() -> Result<()> {
         Cmd::Graph(a) => grapher::run(a)?,
         Cmd::GraphWalk(a) => graphwalker::run(a)?,
         Cmd::GraphDot(a) => graphdot::run(a)?,
-        Cmd::GraphPath(a) => graphpath::run(a)?,
+        Cmd::ShortestPath(a) => spath::run(a)?,
+        Cmd::GraphPath(a) => gpath::run(a)?,
     }
     Ok(())
 }

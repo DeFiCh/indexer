@@ -1,5 +1,6 @@
+use crate::lang::Result;
 use clap::{Parser, Subcommand};
-use std::sync::LazyLock;
+use std::{io::BufRead, sync::LazyLock};
 use tracing::Level;
 
 #[derive(Parser, Debug)]
@@ -43,8 +44,11 @@ pub enum Cmd {
     #[command(name = "graphdot")]
     GraphDot(crate::graphdot::GraphDotArgs),
     /// Find paths between 2 addresses
-    #[command(name = "graphpath")]
-    GraphPath(crate::graphpath::GraphPathArgs),
+    #[command(name = "spath")]
+    ShortestPath(crate::spath::ShortestPathArgs),
+    /// Find all paths with exclusions
+    #[command(name = "gpath")]
+    GraphPath(crate::gpath::GraphPathArgs),
 }
 
 pub fn verbosity_to_level(verbosity: u8, min: Option<u8>) -> Level {
@@ -63,4 +67,25 @@ pub fn verbosity_to_level(verbosity: u8, min: Option<u8>) -> Level {
 pub fn get_args() -> &'static Args {
     static ARGS: LazyLock<Args> = LazyLock::new(Args::parse);
     &ARGS
+}
+
+pub fn process_list_args_with_file_paths(list: &[String]) -> Result<Vec<String>> {
+    let mut r_list: Vec<String> = Vec::with_capacity(list.len());
+    for x in list.iter() {
+        if let Ok(f) = std::fs::File::open(x) {
+            let mut r = std::io::BufReader::new(f);
+            let mut buf = String::new();
+            while r.read_line(&mut buf)? != 0 {
+                let line = buf.trim();
+                if line.is_empty() {
+                    continue;
+                }
+                r_list.push(line.to_string());
+                buf.clear();
+            }
+        } else {
+            r_list.push(x.clone());
+        }
+    }
+    Ok(r_list)
 }

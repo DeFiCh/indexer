@@ -14,6 +14,7 @@ mod lang;
 mod models;
 mod spath;
 mod sqliteindexer;
+mod icxseq;
 
 use crate::lang::Result;
 use args::{get_args, verbosity_to_level, Cmd};
@@ -36,7 +37,8 @@ fn main_fallible() -> Result<()> {
         Cmd::DotReduce { in_file } => {
             dotreducer::run(in_file)?;
         }
-        Cmd::ICXAnalyze(a) => icxanalyzer::run(a)?,
+        Cmd::IcxAnalyze(a) => icxanalyzer::run(a)?,
+        Cmd::IcxSequence(a) => icxseq::run(a)?,
         Cmd::Graph(a) => grapher::run(a)?,
         Cmd::GraphWalk(a) => graphwalker::run(a)?,
         Cmd::GraphDot(a) => graphdot::run(a)?,

@@ -9,7 +9,6 @@ use crate::{
 };
 use anyhow::Context;
 use clap::Parser;
-use petgraph::visit::{EdgeRef, NodeRef};
 use tracing::{debug, info};
 
 #[derive(Parser, Debug)]
@@ -130,9 +129,9 @@ fn path_find_astar_fixed_cost(
             let paths = petgraph::algo::astar(
                 &g,
                 *src_index,
-                |finish| finish == *dest_index,
-                |_e| 1,
-                |_finish| 0,
+                |node| node == *dest_index,
+                |_edge| 1,
+                |_node| 0,
             );
 
             debug!("{:?}", paths);

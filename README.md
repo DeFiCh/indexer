@@ -21,22 +21,39 @@ Commands:
           Reduce dot graph files
   icx1
           Analyze ICX addr usages
+  icxseq
+          Analyze ICX addr usages
   graph
           Build full graph
-  graphexp
+  graphwalk
           Load and explore full graph
   graphdot
           Load the full graph, condense it and output dot files
+  spath
+          Find paths between 2 addresses
+  gpath
+          Find all paths with exclusions
   help
           Print this message or the help of the given subcommand(s)
 
 Options:
   -v, --verbosity...
           Can be called multiple times to increase level. (0-4).
+
+          0: Error
+          1: Warn
+          2: Info
+          3: Debug
+          4: Trace
+
+          Minimum might be pulled higher.
+
   -h, --help
-          Print help (see more with '--help')
+          Print help (see a summary with '-h')
+
   -V, --version
           Print version
+
 ```
 
-See help for each command for more instructions.
+See help for each command for more information.

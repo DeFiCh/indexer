@@ -33,7 +33,10 @@ pub enum Cmd {
     },
     /// Analyze ICX addr usages
     #[command(name = "icx1")]
-    ICXAnalyze(crate::icxanalyzer::ICXAnalyzeArgs),
+    IcxAnalyze(crate::icxanalyzer::ICXAnalyzeArgs),
+    /// Analyze ICX addr usages
+    #[command(name = "icxseq")]
+    IcxSequence(crate::icxseq::IcxSequenceArgs),
     /// Build full graph
     #[command(name = "graph")]
     Graph(crate::grapher::GrapherArgs),

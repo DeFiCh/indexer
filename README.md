@@ -1,18 +1,20 @@
-# dindexer
+# chain-analyzer
 
-Indexer for offline analysis of on-chain data.
+Blockchain indexer for offline analysis of on-chain data.
 
 ## Notes
 
-- Build a full index with only the blockchain node as the source.
+- Currently capable of indexing DeFiChain (https://github.com/DeFiCh/ain), purely from the reference node as source.
+- Can be used for Bitcoin as well as well with a drop-in replacement changes by only changing the RPC parameters.   
+- Build a full index
   - Supports building rockdb datastore or SQLite store.
 - Amends additional data from the source of truth (node consensus logs) to amend additional data like ICX
-- Tools to explore the data and generate various different graphs of the large data set.
+- Commands to explore the data and generate various different graphs and paths of the large data set.
 
 ## Usage
 
 ```
-Usage: dindexer [OPTIONS] <COMMAND>
+Usage: chain-analyzer [OPTIONS] <COMMAND>
 
 Commands:
   index

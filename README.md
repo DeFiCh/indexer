@@ -19,12 +19,12 @@ Commands:
           Index from cli sqlite db
   dotreduce
           Reduce dot graph files
-  icx1
-          Analyze ICX addr usages
+  icxanalyze
+          Analyze ICX claims and every address involved in the way up until the swap of the claims
   icxseq
-          Analyze ICX addr usages
+          Output the full ICX sequence chain
   graph
-          Build full graph
+          Construct the full graph and output it to a file so the graph can loaded in memory and reused directly
   graphwalk
           Load and explore full graph
   graphdot

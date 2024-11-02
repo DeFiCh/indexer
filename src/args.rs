@@ -31,13 +31,15 @@ pub enum Cmd {
         #[arg(long = "in")]
         in_file: String,
     },
-    /// Analyze ICX addr usages
-    #[command(name = "icx1")]
+    /// Analyze ICX claims and every address involved in the way 
+    /// up until the swap of the claims
+    #[command(name = "icxanalyze")]
     IcxAnalyze(crate::icxanalyzer::ICXAnalyzeArgs),
-    /// Analyze ICX addr usages
+    /// Output the full ICX sequence chain
     #[command(name = "icxseq")]
     IcxSequence(crate::icxseq::IcxSequenceArgs),
-    /// Build full graph
+    /// Construct the full graph and output it to a file
+    /// so the graph can loaded in memory and reused directly. 
     #[command(name = "graph")]
     Graph(crate::grapher::GrapherArgs),
     /// Load and explore full graph
@@ -46,7 +48,7 @@ pub enum Cmd {
     /// Load the full graph, condense it and output dot files
     #[command(name = "graphdot")]
     GraphDot(crate::graphdot::GraphDotArgs),
-    /// Find paths between 2 addresses
+    /// Find shortest path between 2 addresses or a list of given addresses
     #[command(name = "spath")]
     ShortestPath(crate::spath::ShortestPathArgs),
     /// Find all paths with exclusions

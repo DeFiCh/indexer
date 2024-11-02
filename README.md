@@ -30,7 +30,7 @@ Commands:
   graphdot
           Load the full graph, condense it and output dot files
   spath
-          Find paths between 2 addresses
+          Find shortest path between 2 addresses or a list of given addresses
   gpath
           Find all paths with exclusions
   help

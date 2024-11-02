@@ -196,6 +196,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chain-analyzer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "atty",
+ "bigdecimal",
+ "bincode",
+ "clap",
+ "petgraph",
+ "postcard",
+ "regex",
+ "rusqlite",
+ "rust-rocksdb",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "signal-hook",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "clang-sys"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -263,29 +286,6 @@ name = "critical-section"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
-
-[[package]]
-name = "dindexer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "atty",
- "bigdecimal",
- "bincode",
- "clap",
- "petgraph",
- "postcard",
- "regex",
- "rusqlite",
- "rust-rocksdb",
- "serde",
- "serde_derive",
- "serde_json",
- "signal-hook",
- "thiserror",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "either"

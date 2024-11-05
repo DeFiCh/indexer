@@ -7,7 +7,6 @@ use crate::Result;
 use core::str;
 use std::collections::{HashMap, HashSet};
 use std::process::{Command, Output};
-use std::rc::Rc;
 use tracing::warn;
 
 #[derive(Debug)]
@@ -20,8 +19,8 @@ pub struct OutputExt {
 }
 
 impl OutputExt {
-    pub fn str(&self) -> Result<std::rc::Rc<str>> {
-        Ok(std::rc::Rc::from(std::str::from_utf8(&self.output.stdout)?))
+    pub fn str(&self) -> Result<TStr> {
+        Ok(TStr::from(std::str::from_utf8(&self.output.stdout)?))
     }
 
     pub fn json<'a, T>(&'a self) -> Result<T>
@@ -62,9 +61,9 @@ impl CliDriver {
         Ok(res.trim().parse::<i64>()?)
     }
 
-    pub fn get_block_hash(&mut self, height: i64) -> Result<Rc<str>> {
+    pub fn get_block_hash(&mut self, height: i64) -> Result<TStr> {
         let out = self.run(["getblockhash", &height.to_string()])?;
-        Ok(Rc::from(out.str()?.trim()))
+        Ok(TStr::from(out.str()?.trim()))
     }
 
     pub fn get_block(&mut self, hash: &str, verbosity: Option<i32>) -> Result<OutputExt> {

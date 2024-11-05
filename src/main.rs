@@ -10,11 +10,11 @@ mod grapher;
 mod graphutils;
 mod graphwalker;
 mod icxanalyzer;
+mod icxseq;
 mod lang;
 mod models;
 mod spath;
 mod sqliteindexer;
-mod icxseq;
 
 use crate::lang::Result;
 use args::{get_args, verbosity_to_level, Cmd};

@@ -10,11 +10,11 @@ use db::{
 use dfiutils::{extract_all_dfi_addresses, token_id_to_symbol_maybe, CliDriver};
 use lang::OptionExt;
 use lang::Result;
-use models::{Block, IcxLogData, IcxTxSet, TxType};
-use std::borrow::Cow;
+use models::{Block, IcxLogData, IcxTxSet, TStr, TxType};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::BufRead;
+use std::rc::Rc;
 use tracing::debug;
 use tracing::{error, info};
 
@@ -56,7 +56,7 @@ pub fn run(args: &IndexArgs) -> Result<()> {
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, std::sync::Arc::clone(&quit))?;
 
-    let mut icx_data_map = HashMap::<String, IcxLogData>::default();
+    let mut icx_data_map = HashMap::<TStr, IcxLogData>::default();
 
     if let Some(defid_log_path) = defid_log_path {
         let file = std::fs::File::open(defid_log_path)?;
@@ -102,7 +102,9 @@ pub fn run(args: &IndexArgs) -> Result<()> {
             break;
         }
 
-        // TODO: Abstract this out to a fn so error control is better. For now, handle cli errors
+        // May be abstract this out to a fn so error control is better. For now, handle cli errors
+        // Reason: Ctrl + C will send SIGHUP to the child process and that'll exit with err
+        // returning upward instead of breaking on the loop and flushing. This is a workaround.
         let hash = match cli.get_block_hash(height) {
             Ok(hash) => hash,
             Err(e) => {
@@ -110,20 +112,19 @@ pub fn run(args: &IndexArgs) -> Result<()> {
                 break;
             }
         };
-        let block = match cli.get_block(&hash, Some(4)) {
+        let block_out = match cli.get_block(&hash, Some(4)) {
             Ok(block) => block,
             Err(e) => {
                 err = Some(e);
                 break;
             }
         };
-
-        let block: Block = serde_json::from_value(block)?;
+        let block_json_str = block_out.str()?;
+        let block: Block = block_out.json()?;
 
         debug!("[{}] hash: {}", height, &hash);
         {
-            let block_json = serde_json::to_string(&block)?;
-            stmts[0].execute(rusqlite::params![height, &hash, &block_json])?;
+            stmts[0].execute(rusqlite::params![height, &hash, block_json_str])?;
         }
 
         for tx in block.tx {
@@ -133,11 +134,10 @@ pub fn run(args: &IndexArgs) -> Result<()> {
             let tx_in_addrs = dfiutils::fold_addr_val_map(&tx_in_addrs);
             let tx_out = dfiutils::fold_addr_val_map(&tx_out_addrs)
                 .into_iter()
-                .filter(|x| x.0 != "x") // strip coinbase out
+                .filter(|x| *x.0 != *"x") // strip coinbase out
                 .collect::<HashMap<_, _>>();
 
-            let mut tx_type = tx.vm.as_ref().map(|x| TxType::from(x.txtype.as_ref()));
-
+            let mut tx_type = tx.vm.as_ref().map(|x| TxType::from(&*x.txtype));
             let mut dvm_addrs = HashSet::new();
 
             if tx_in_addrs.is_empty() {
@@ -168,16 +168,16 @@ pub fn run(args: &IndexArgs) -> Result<()> {
                     swap_amt = format!("{:.9}", &swap_data.from_amount);
                 }
                 Some(TxType::ICXClaimDFCHTLC) => {
-                    let icx_data = icx_data_map.get(tx.txid.as_str());
+                    let icx_data = icx_data_map.get(&tx.txid);
                     if let Some(icx_data) = icx_data {
                         icx_claim_data = Some(IcxTxSet {
-                            order_tx: Cow::from(&icx_data.order_tx),
-                            claim_tx: Cow::from(&icx_data.claim_tx),
-                            offer_tx: Cow::from(&icx_data.offer_tx),
-                            dfchtlc_tx: Cow::from(&icx_data.dfchtlc_tx),
+                            order_tx: icx_data.order_tx.clone(),
+                            claim_tx: icx_data.claim_tx.clone(),
+                            offer_tx: icx_data.offer_tx.clone(),
+                            dfchtlc_tx: icx_data.dfchtlc_tx.clone(),
                         });
-                        icx_addr = icx_data.address.clone();
-                        icx_amt = icx_data.amount.clone();
+                        icx_addr = icx_data.address.to_string();
+                        icx_amt = icx_data.amount.to_string();
                     }
                 }
                 _ => {}
@@ -186,7 +186,7 @@ pub fn run(args: &IndexArgs) -> Result<()> {
             let (dvm_in_addrs, _): (Vec<_>, Vec<_>) = dvm_addrs
                 .iter()
                 .cloned()
-                .partition(|addr| tx_in_addrs.iter().any(|(in_addr, _)| in_addr == addr));
+                .partition(|addr| tx_in_addrs.iter().any(|(in_addr, _)| *in_addr == *addr));
 
             if enable_addr_graph {
                 // DVM addresses are parsed for all matching addresses inside the
@@ -197,7 +197,7 @@ pub fn run(args: &IndexArgs) -> Result<()> {
                 // We partition these out first. For out, we take the whole list
                 // to err on the side of caution to add more edges.
 
-                let mut changeset = HashMap::new();
+                let mut changeset = HashMap::<[Rc<str>; 2], i64>::new();
 
                 for (out_addr, _) in tx_out.iter() {
                     for (in_addr, _) in tx_in_addrs.iter() {

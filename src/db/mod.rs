@@ -7,7 +7,7 @@ pub mod sqlite_v1;
 
 use crate::lang::{Result, ResultExt};
 use crate::models::{Block, IcxTxSet, Transaction};
-use rusqlite::{params, CachedStatement, Connection, OptionalExtension};
+use rusqlite::{params, CachedStatement, Connection, OptionalExtension, Row};
 use std::collections::HashMap;
 
 pub fn sqlite_init_db_v2(path: Option<&str>) -> Result<Connection> {
@@ -93,7 +93,7 @@ fn sqlite_init_tables_v2(conn: &Connection) -> Result<()> {
 }
 
 #[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct TxRow<'a> {
+pub struct TxRow {
     pub txid: String,
     pub height: i64,
     pub tx_type: String,
@@ -102,7 +102,7 @@ pub struct TxRow<'a> {
     pub dvm_in: Vec<String>,
     pub dvm_out: Vec<String>,
     pub data: Transaction,
-    pub icx_data: IcxTxSet<'a>,
+    pub icx_data: IcxTxSet,
     pub icx_addr: String,
     pub icx_btc_exp_amt: String,
     pub swap_from: String,
@@ -110,7 +110,7 @@ pub struct TxRow<'a> {
     pub swap_amt: String,
 }
 
-impl<'a> TxRow<'a> {
+impl TxRow {
     pub fn from_sqlite_row(row: &rusqlite::Row) -> Result<Self> {
         let mut v = TxRow::from_sqlite_row_partial(row)?;
         let data_str = row.get::<_, String>(7)?;
@@ -460,6 +460,22 @@ impl SqliteBlockStore {
             let data: &str = row.get_ref(0)?.as_str().map_err(|_| "ref error")?;
             let block: Result<Block> = serde_json::from_str(data).map_err(|e| e.into());
             f(block)?;
+        }
+        Ok(())
+    }
+
+    pub fn iter_txs_raw<F>(&self, modifier: Option<&str>, mut f: F) -> Result<()>
+    where
+        F: FnMut(Result<&Row>) -> Result<()>,
+    {
+        let query = match modifier {
+            Some(ext) => format!("SELECT * FROM txs {}", ext),
+            None => "SELECT * FROM txs".to_string(),
+        };
+        let mut stmt = self.conn.prepare(&query)?;
+        let mut q = stmt.query([])?;
+        while let Some(row) = q.next()? {
+            f(Ok(row))?;
         }
         Ok(())
     }

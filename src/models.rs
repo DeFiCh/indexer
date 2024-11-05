@@ -1,14 +1,15 @@
 #![allow(dead_code)]
 
-use std::borrow::Cow;
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::rc::Rc;
+
+pub type TStr = Rc<str>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
-    pub hash: String,
+    pub hash: TStr,
     pub height: u32,
     pub confirmations: i64,
     pub strippedsize: u64,
@@ -16,35 +17,35 @@ pub struct Block {
     pub weight: u64,
     pub minter: MinterInfo,
     pub version: i32,
-    pub version_hex: String,
-    pub merkleroot: String,
+    pub version_hex: TStr,
+    pub merkleroot: TStr,
     pub time: i64,
     pub mediantime: i64,
-    pub bits: String,
+    pub bits: TStr,
     pub difficulty: f64,
-    pub chainwork: String,
+    pub chainwork: TStr,
     pub tx: Vec<Transaction>,
     pub n_tx: u64,
-    pub previousblockhash: Option<String>,
-    pub nextblockhash: Option<String>,
+    pub previousblockhash: Option<TStr>,
+    pub nextblockhash: Option<TStr>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MinterInfo {
-    pub id: String,
-    pub operator: Option<String>,
-    pub owner: Option<String>,
-    pub reward_address: Option<String>,
+    pub id: TStr,
+    pub operator: Option<TStr>,
+    pub owner: Option<TStr>,
+    pub reward_address: Option<TStr>,
     pub total_minted: u64,
-    pub stake_modifier: String,
+    pub stake_modifier: TStr,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {
-    pub txid: String,
-    pub hash: String,
+    pub txid: TStr,
+    pub hash: TStr,
     pub version: u32,
     pub size: u64,
     pub vsize: u64,
@@ -52,23 +53,23 @@ pub struct Transaction {
     pub locktime: u64,
     pub vin: Vec<Vin>,
     pub vout: Vec<Vout>,
-    pub hex: String,
+    pub hex: TStr,
     pub vm: Option<VMInfo>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VMInfo {
-    pub vmtype: String,
-    pub txtype: String,
+    pub vmtype: TStr,
+    pub txtype: TStr,
     pub msg: serde_json::Value,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ScriptSig {
-    asm: String,
-    pub hex: Option<String>,
+    asm: TStr,
+    pub hex: Option<TStr>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -98,17 +99,17 @@ impl Vin {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VinCoinbase {
-    pub coinbase: String,
+    pub coinbase: TStr,
     pub sequence: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VinStandard {
-    pub txid: String,
+    pub txid: TStr,
     pub vout: u64,
     pub script_sig: ScriptSig,
-    pub txinwitness: Option<Vec<String>>,
+    pub txinwitness: Option<Vec<TStr>>,
     pub sequence: i64,
 }
 
@@ -123,29 +124,29 @@ pub struct Vout {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ScriptPubKey {
-    pub asm: String,
-    pub hex: String,
-    pub r#type: String,
+    pub asm: TStr,
+    pub hex: TStr,
+    pub r#type: TStr,
     pub req_sigs: Option<u64>,
-    pub addresses: Option<Vec<String>>,
+    pub addresses: Option<Vec<TStr>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IcxLogData {
-    pub order_tx: String,
-    pub offer_tx: String,
-    pub dfchtlc_tx: String,
-    pub claim_tx: String,
-    pub address: String,
-    pub amount: String,
+    pub order_tx: TStr,
+    pub offer_tx: TStr,
+    pub dfchtlc_tx: TStr,
+    pub claim_tx: TStr,
+    pub address: TStr,
+    pub amount: TStr,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct IcxTxSet<'a> {
-    pub order_tx: Cow<'a, str>,
-    pub offer_tx: Cow<'a, str>,
-    pub dfchtlc_tx: Cow<'a, str>,
-    pub claim_tx: Cow<'a, str>,
+pub struct IcxTxSet {
+    pub order_tx: TStr,
+    pub offer_tx: TStr,
+    pub dfchtlc_tx: TStr,
+    pub claim_tx: TStr,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -288,38 +289,38 @@ impl TxType {
     }
 }
 
-type TokenAmount = String;
+type TokenAmount = TStr;
 
 // vm":{"vmtype":"dvm","txtype":"UtxosToAccount","msg":{"8RbpgySS2qkXQG2UosQCqADtS7zRAr8bx5":"60000.00000000@0"}}}
-pub type UtxosToAccountMsg = HashMap<String, TokenAmount>;
+pub type UtxosToAccountMsg = HashMap<TStr, TokenAmount>;
 
 // "vm":{"vmtype":"dvm","txtype":"AccountToAccount","msg":{"from":"dK13qHWrbSdtFkxnfg3UVEvNrsxa9i45pd","to":{"dc432ofNoMBg3Y6eubzx5dS1iRLMKXsBWE":"2.00000000@128"}}}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccountToAccountMsg {
-    pub from: String,
-    pub to: HashMap<String, TokenAmount>,
+    pub from: TStr,
+    pub to: HashMap<TStr, TokenAmount>,
 }
 
 // "vm":{"vmtype":"dvm","txtype":"AnyAccountsToAccounts","msg":{"from":{"dPhcSbZFcqeiaKxpVc9yWGTGchgvfXvFA8":"1.00000000@0"},"to":{"8VW5syUUa726cPYUjidE7SyyGjEZrVi4JU":"1.00000000@0"}}}}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AnyAccountsToAccountsMsg {
-    pub from: HashMap<String, TokenAmount>,
-    pub to: HashMap<String, TokenAmount>,
+    pub from: HashMap<TStr, TokenAmount>,
+    pub to: HashMap<TStr, TokenAmount>,
 }
 
 // "vm":{"vmtype":"dvm","txtype":"AccountToUtxos","msg":{"from":"8HzyWaC9bJKCouveUed2jm8w4MJzrt3c2Q","to":{"dFZRkToyEgnWy8GSXHmJPM1KXY67XKgSQx":"6338.00000000@0"}}}}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AccountToUtxosMsg {
-    pub from: String,
-    pub to: HashMap<String, TokenAmount>,
+    pub from: TStr,
+    pub to: HashMap<TStr, TokenAmount>,
 }
 
 // "vm":{"vmtype":"dvm","txtype":"PoolSwap","msg":{"fromAddress":"8J6KKxHQAWDJDR1PQfC46ocgmxTvtLLc6R","fromAmount":9.0,"fromToken":"0","maxPrice":0.00002531,"maxPriceHighPrecision":"0.00002531","toAddress":"8eG9Pe1wQnWZuXD5NRr3QaxDex9RJ99fd5","toToken":"2"}}}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub struct PoolSwapMsg {
-    pub from_address: String,
-    pub to_address: String,
+    pub from_address: TStr,
+    pub to_address: TStr,
     pub from_amount: f64,
-    pub from_token: String,
-    pub to_token: String,
+    pub from_token: TStr,
+    pub to_token: TStr,
 }

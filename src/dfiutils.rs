@@ -2,10 +2,12 @@
 
 use crate::db::BlockStore;
 use crate::lang::Error;
-use crate::models::{Transaction, Vin, VinStandard, Vout};
+use crate::models::{TStr, Transaction, Vin, VinStandard, Vout};
 use crate::Result;
+use core::str;
 use std::collections::{HashMap, HashSet};
 use std::process::{Command, Output};
+use std::rc::Rc;
 use tracing::warn;
 
 #[derive(Debug)]
@@ -18,12 +20,15 @@ pub struct OutputExt {
 }
 
 impl OutputExt {
-    pub fn string(&self) -> Result<std::borrow::Cow<str>> {
-        Ok(String::from_utf8_lossy(&self.output.stdout))
+    pub fn str(&self) -> Result<std::rc::Rc<str>> {
+        Ok(std::rc::Rc::from(std::str::from_utf8(&self.output.stdout)?))
     }
 
-    pub fn json(&self) -> Result<serde_json::Value> {
-        Ok(serde_json::from_str(&self.string()?)?)
+    pub fn json<'a, T>(&'a self) -> Result<T>
+    where
+        T: serde::Deserialize<'a>,
+    {
+        Ok(serde_json::from_slice(&self.output.stdout)?)
     }
 }
 
@@ -53,27 +58,27 @@ impl CliDriver {
 
     pub fn get_block_count(&mut self) -> Result<i64> {
         let out = self.run(["getblockcount"])?;
-        let res = out.string()?;
+        let res = out.str()?;
         Ok(res.trim().parse::<i64>()?)
     }
 
-    pub fn get_block_hash(&mut self, height: i64) -> Result<String> {
+    pub fn get_block_hash(&mut self, height: i64) -> Result<Rc<str>> {
         let out = self.run(["getblockhash", &height.to_string()])?;
-        Ok(out.string()?.trim().to_owned())
+        Ok(Rc::from(out.str()?.trim()))
     }
 
-    pub fn get_block(&mut self, hash: &str, verbosity: Option<i32>) -> Result<serde_json::Value> {
+    pub fn get_block(&mut self, hash: &str, verbosity: Option<i32>) -> Result<OutputExt> {
         let mut args = Vec::from(["getblock", hash]);
         let v_str;
         if let Some(v) = verbosity {
             v_str = Some(v.to_string());
             args.push(v_str.as_ref().unwrap());
         }
-        self.run(args)?.json()
+        self.run(args)
     }
 }
 
-pub fn extract_all_dfi_addresses(json_haystack: &str) -> HashSet<String> {
+pub fn extract_all_dfi_addresses(json_haystack: &str) -> HashSet<TStr> {
     use std::sync::LazyLock;
     static DFI_ADDRESS_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
         let r1 = r#""(d|7|8)[1-9A-HJ-NP-Za-km-z]{25,34}""#; // legacy
@@ -84,7 +89,7 @@ pub fn extract_all_dfi_addresses(json_haystack: &str) -> HashSet<String> {
 
     DFI_ADDRESS_RE
         .captures_iter(json_haystack)
-        .map(|x| x[0].trim_matches('\"').to_string()) // remove quotes
+        .map(|x| TStr::from(x[0].trim_matches('\"'))) // remove quotes
         .collect::<HashSet<_>>() // unique
 }
 
@@ -127,7 +132,10 @@ fn test_extract_dfi_addresses() {
         .collect::<Vec<_>>();
 
     addresses.sort();
-    assert_eq!(addresses, expected);
+
+    for x in addresses.iter().zip(expected) {
+        assert_eq!(x.0.as_ref(), x.1);
+    }
 }
 
 pub fn token_id_to_symbol_maybe(token_id: &str) -> &str {
@@ -148,7 +156,7 @@ pub fn token_id_to_symbol_maybe(token_id: &str) -> &str {
 pub fn get_txin_addr_val_list(
     tx_ins: &[Vin],
     block_store: &impl BlockStore,
-) -> Result<Vec<(String, f64)>> {
+) -> Result<Vec<(TStr, f64)>> {
     let map_fn = |x: VinStandard| {
         let tx_id = x.txid;
         let tx = block_store.get_tx_from_hash(&tx_id);
@@ -159,12 +167,18 @@ pub fn get_txin_addr_val_list(
             .find(|v| v.n == x.vout)
             .ok_or_else(|| Error::from(format!("tx vout not found: {}", &tx_id)))?;
         let val = utxo.value;
-        let addr = if let Some(addrs) = &utxo.script_pub_key.addresses {
-            addrs.join("+")
+        if let Some(addrs) = &utxo.script_pub_key.addresses {
+            if addrs.len() == 1 {
+                return Ok((addrs[0].clone(), val));
+            } else {
+                warn!("multiple addresses found: {}", tx_id);
+            }
+            // Multi-sig, we just join it with a +
+            let s = addrs.join("+");
+            Ok((TStr::from(s), val))
         } else {
-            return Err(Error::from(format!("input with no addr found: {}", tx_id)));
-        };
-        Ok((addr, val))
+            Err(Error::from(format!("input with no addr found: {}", tx_id)))
+        }
     };
 
     tx_ins
@@ -174,7 +188,7 @@ pub fn get_txin_addr_val_list(
         .collect()
 }
 
-pub fn get_txout_addr_val_list(tx: &Transaction, tx_outs: &[Vout]) -> Vec<(String, f64)> {
+pub fn get_txout_addr_val_list(tx: &Transaction, tx_outs: &[Vout]) -> Vec<(TStr, f64)> {
     tx_outs
         .iter()
         .map(|utxo| {
@@ -184,17 +198,17 @@ pub fn get_txout_addr_val_list(tx: &Transaction, tx_outs: &[Vout]) -> Vec<(Strin
                     warn!("multiple addresses found: {}", tx.txid);
                 }
                 // Multi-sig, we just join it with a +
-                addrs.join("+")
+                TStr::from(addrs.join("+"))
             } else {
                 // most dvm OP_RETURN txs without address will be these
-                "x".to_owned()
+                TStr::from("x")
             };
             (addr, val)
         })
         .collect::<Vec<_>>()
 }
 
-pub fn fold_addr_val_map(addr_val_list: &[(String, f64)]) -> HashMap<String, f64> {
+pub fn fold_addr_val_map(addr_val_list: &[(TStr, f64)]) -> HashMap<TStr, f64> {
     addr_val_list
         .iter()
         .fold(HashMap::with_capacity(addr_val_list.len()), |mut m, v| {

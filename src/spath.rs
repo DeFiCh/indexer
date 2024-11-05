@@ -65,7 +65,7 @@ pub fn run(args: &ShortestPathArgs) -> Result<()> {
     } else {
         // This is going to be more work, as we have no choice but to evaluate more paths.
         // Alternatively, implement a custom A* that attaches a high cost and skip nodes on seeing
-        // the ignore list, but still stops search at a certain level. 
+        // the ignore list, but still stops search at a certain level.
         path_find_with_ignore(
             src_addrs,
             dest_addrs,
@@ -123,8 +123,19 @@ fn path_find_astar_fixed_cost(
             }
             info!("finding path: {} -> {}", src, dest);
 
-            let src_index = node_index_map.get(src).context("src_index")?;
-            let dest_index = node_index_map.get(dest).context("dest_index")?;
+            let src_index = node_index_map.get(src);
+            if src_index.is_none() {
+                info!("src not found: {}", src);
+                continue;
+            }
+            let dest_index = node_index_map.get(dest);
+            if dest_index.is_none() {
+                info!("dest not found: {}", dest);
+                continue;
+            }
+
+            let src_index = src_index.unwrap();
+            let dest_index = dest_index.unwrap();
 
             let paths = petgraph::algo::astar(
                 &g,

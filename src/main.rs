@@ -1,22 +1,23 @@
 #![feature(error_generic_member_access)]
 
 mod args;
+mod cliindexer;
 mod db;
 mod dfiutils;
 mod dotreducer;
 mod gpath;
+mod graphbuild;
 mod graphdot;
-mod grapher;
 mod graphutils;
-mod graphwalker;
-mod icxanalyzer;
-mod icxanalyzer2;
+mod graphwalk;
+mod icx1;
+mod icx2;
 mod icxseq;
 mod lang;
 mod logparse;
 mod models;
 mod spath;
-mod sqliteindexer;
+mod sqliteindex;
 
 use crate::lang::Result;
 use args::{get_args, verbosity_to_level, Cmd};
@@ -35,19 +36,20 @@ fn main_fallible() -> Result<()> {
         .init();
 
     match &args.command {
-        Cmd::Index(a) => sqliteindexer::run(a)?,
+        Cmd::CliIndex(a) => cliindexer::run(a)?,
         Cmd::DotReduce { in_file } => {
             dotreducer::run(in_file)?;
         }
-        Cmd::IcxAnalyze(a) => icxanalyzer::run(a)?,
-        Cmd::IcxAnalyze2(a) => icxanalyzer2::run(a)?,
-        Cmd::IcxSequence(a) => icxseq::run(a)?,
-        Cmd::Graph(a) => grapher::run(a)?,
-        Cmd::GraphWalk(a) => graphwalker::run(a)?,
+        Cmd::Graph(a) => graphbuild::run(a)?,
         Cmd::GraphDot(a) => graphdot::run(a)?,
-        Cmd::ShortestPath(a) => spath::run(a)?,
         Cmd::GraphPath(a) => gpath::run(a)?,
+        Cmd::GraphWalk(a) => graphwalk::run(a)?,
+        Cmd::IcxAnalyze1(a) => icx1::run(a)?,
+        Cmd::IcxAnalyze2(a) => icx2::run(a)?,
+        Cmd::IcxSequence(a) => icxseq::run(a)?,
         Cmd::LogParseCheck(a) => logparse::run(a)?,
+        Cmd::ShortestPath(a) => spath::run(a)?,
+        Cmd::SqliteIndex(a) => sqliteindex::run(a)?,
     }
     Ok(())
 }

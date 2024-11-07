@@ -20,11 +20,15 @@ pub struct Args {
     #[command(subcommand)]
     pub command: Cmd,
 }
+
 #[derive(Subcommand, Debug)]
 pub enum Cmd {
     /// Index from cli sqlite db
-    #[command(name = "index")]
-    Index(crate::sqliteindexer::IndexArgs),
+    #[command(name = "cindex")]
+    CliIndex(crate::cliindexer::CliIndexArgs),
+    /// Index / transform / migrate from src sqlite db to dest db
+    #[command(name = "sindex")]
+    SqliteIndex(crate::sqliteindex::SqliteIndexArgs),
     /// Reduce dot graph files
     #[command(name = "dotreduce")]
     DotReduce {
@@ -33,31 +37,32 @@ pub enum Cmd {
     },
     /// Analyze ICX claims and every address involved in the way
     /// up until the swap of the claims
-    #[command(name = "icxanalyze")]
-    IcxAnalyze(crate::icxanalyzer::IcxAnalyzeArgs),
+    #[command(name = "icx1")]
+    IcxAnalyze1(crate::icx1::IcxAnalyzeArgs),
     /// ICX analysis 2
-    #[command(name = "icxanalyze2")]
-    IcxAnalyze2(crate::icxanalyzer2::IcxAnalyze2Args),
+    #[command(name = "icx2")]
+    IcxAnalyze2(crate::icx2::IcxAnalyze2Args),
     /// Output the full ICX sequence chain
     #[command(name = "icxseq")]
     IcxSequence(crate::icxseq::IcxSequenceArgs),
     /// Construct the full graph and output it to a file
     /// so the graph can loaded in memory and reused directly.
-    #[command(name = "graph")]
-    Graph(crate::grapher::GrapherArgs),
+    #[command(name = "gbuild")]
+    Graph(crate::graphbuild::GrapherArgs),
     /// Load and explore full graph
-    #[command(name = "graphwalk")]
-    GraphWalk(crate::graphwalker::GraphWalkArgs),
+    #[command(name = "gwalk")]
+    GraphWalk(crate::graphwalk::GraphWalkArgs),
     /// Load the full graph, condense it and output dot files
-    #[command(name = "graphdot")]
+    #[command(name = "gdot")]
     GraphDot(crate::graphdot::GraphDotArgs),
-    /// Find shortest path between 2 addresses or a list of given addresses
-    #[command(name = "spath")]
-    ShortestPath(crate::spath::ShortestPathArgs),
     /// Find all paths with exclusions
     #[command(name = "gpath")]
     GraphPath(crate::gpath::GraphPathArgs),
-    /// Find all paths with exclusions
+    /// Find shortest path between 2 addresses or a list of given addresses
+    #[command(name = "spath")]
+    ShortestPath(crate::spath::ShortestPathArgs),
+    /// Parse logs that will be ingested and merge into index during indexing
+    /// and check for errors
     #[command(name = "logparsecheck")]
     LogParseCheck(crate::logparse::LogParseArgs),
 }

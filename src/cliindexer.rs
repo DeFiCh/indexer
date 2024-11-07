@@ -20,7 +20,7 @@ use tracing::debug;
 use tracing::info;
 
 #[derive(Parser, Debug)]
-pub struct IndexArgs {
+pub struct CliIndexArgs {
     #[arg(long, default_value = "defi-cli")]
     pub defi_cli_path: String,
     #[arg(long, default_value = "data/index.sqlite")]
@@ -44,7 +44,7 @@ pub struct IndexArgs {
     pub enable_graph_table: bool,
 }
 
-pub fn run(args: &IndexArgs) -> Result<()> {
+pub fn run(args: &CliIndexArgs) -> Result<()> {
     let db_path = match args.sqlite_path.is_empty() {
         true => None,
         false => Some(args.sqlite_path.as_str()),

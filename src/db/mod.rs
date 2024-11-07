@@ -462,13 +462,13 @@ impl SqliteBlockStore {
         Ok(())
     }
 
-    pub fn iter_txs_raw<F>(&self, modifier: Option<&str>, mut f: F) -> Result<()>
+    fn iter_table<F>(&self, table: &str, modifier: Option<&str>, mut f: F) -> Result<()>
     where
         F: FnMut(Result<&Row>) -> Result<()>,
     {
         let query = match modifier {
-            Some(ext) => format!("SELECT * FROM txs {}", ext),
-            None => "SELECT * FROM txs".to_string(),
+            Some(ext) => format!("SELECT * FROM {} {}", table, ext),
+            None => format!("SELECT * FROM {}", table),
         };
         let mut stmt = self.conn.prepare(&query)?;
         let mut q = stmt.query([])?;
@@ -477,6 +477,30 @@ impl SqliteBlockStore {
         }
         Ok(())
     }
+
+    pub fn iter_txs_raw<F>(&self, modifier: Option<&str>, f: F) -> Result<()>
+    where
+        F: FnMut(Result<&Row>) -> Result<()>,
+    {
+        self.iter_table("txs", modifier, f)
+    }
+
+    pub fn iter_blocks_raw<F>(&self, modifier: Option<&str>, f: F) -> Result<()>
+    where
+        F: FnMut(Result<&Row>) -> Result<()>,
+    {
+        self.iter_table("blocks", modifier, f)
+    }
+
+    // pub fn iter_txs<F>(&self, modifier: Option<&str>, mut f: F) -> Result<()>
+    // where
+    //     F: FnMut(Result<TxRow>) -> Result<()>,
+    // {
+    //     self.iter_table("txs", modifier, |row| {
+    //         let tx_row = TxRow::from_sqlite_row(&row?)?;
+    //         f(Ok(tx_row))
+    //     })
+    // }
 
     pub fn iter_txs<F>(&self, modifier: Option<&str>, mut f: F) -> Result<()>
     where

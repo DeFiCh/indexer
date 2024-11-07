@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 
+use crate::db::sqlite_init_pragma_v1;
 use crate::lang::Result;
 use rusqlite::{CachedStatement, Connection};
-
-use crate::db::sqlite_init_pragma_v1;
 
 pub fn sqlite_init_db_v1(path: Option<&str>) -> Result<Connection> {
     let path = path.unwrap_or("data/index.sqlite");

@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::{
     db::SqliteBlockStore,
     graphutils,
@@ -9,6 +7,7 @@ use crate::{
 use anyhow::Context;
 use clap::Parser;
 use petgraph::visit::EdgeRef;
+use std::str::FromStr;
 use tracing::{debug, error, info, trace};
 
 #[derive(Parser, Debug)]

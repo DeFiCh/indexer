@@ -2,21 +2,16 @@
 #![cfg(feature = "legacy")]
 
 mod args;
-#[path = "../db/mod.rs"]
+mod blockindexer;
 mod db;
 #[path = "../dfiutils.rs"]
 mod dfiutils;
+mod grapher;
 #[path = "../lang.rs"]
 mod lang;
-#[path = "../models.rs"]
 mod models;
-
-mod blockindexer;
-mod grapher;
 mod txindexer;
-
 use crate::lang::Result;
-
 use clap::Parser;
 use std::env;
 use tracing::info;

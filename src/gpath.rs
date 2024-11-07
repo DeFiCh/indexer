@@ -1,7 +1,7 @@
 use crate::{
     db::SqliteBlockStore,
     graphutils,
-    lang::{OptionExt, Result},
+    lang::{self, OptionExt, Result},
     models::TxType,
 };
 use anyhow::Context;
@@ -18,10 +18,10 @@ pub struct GraphPathArgs {
     pub graph_meta_path: String,
     /// Source address
     #[arg(long, short = 'a')]
-    pub src_addr: String,
+    pub src: String,
     /// Dest address
     #[arg(long, short = 'd')]
-    pub dest_addr: String,
+    pub dest: String,
 }
 
 pub fn run(args: &GraphPathArgs) -> Result<()> {
@@ -33,11 +33,20 @@ pub fn run(args: &GraphPathArgs) -> Result<()> {
     let sql_store = SqliteBlockStore::new_v2(Some(&args.sqlite_path))?;
     let (g, node_index_map) = graphutils::load_graph(&args.graph_meta_path, &args.graph_data_path)?;
 
-    let src_addr = &args.src_addr;
-    let dest_addr = &args.dest_addr;
+    let src = &args.src;
+    let dest = &args.dest;
 
-    let src_index = node_index_map.get(src_addr).context("src_index")?;
-    let dest_index = node_index_map.get(dest_addr).context("dest_index")?;
+    let src_index = node_index_map.get(src);
+    if src_index.is_none() {
+        return Err(lang::Error::from(format!("src not found: {}", src)));
+    }
+    let dest_index = node_index_map.get(dest);
+    if dest_index.is_none() {
+        return Err(lang::Error::from(format!("dest not found: {}", dest)));
+    }
+
+    let src_index = src_index.unwrap();
+    let dest_index = dest_index.unwrap();
 
     info!("finding path..");
 

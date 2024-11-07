@@ -1,8 +1,8 @@
 #![allow(dead_code)]
-use crate::db::{BlockStore, TxAddrData};
 use crate::lang::Result;
 use crate::models::{Block, Transaction};
 use rust_rocksdb::{ColumnFamily, ColumnFamilyDescriptor, CompactOptions, Options, DB};
+use std::collections::HashMap;
 use tracing::info;
 
 pub fn rocks_open_db(path: Option<&str>) -> Result<DB> {
@@ -69,6 +69,23 @@ pub fn encode_height(height: i64) -> String {
     let is_neg = if height < 0 { "-" } else { "" };
     let length = height_abs.len();
     format!("{is_neg}{length:x}{height_abs}")
+}
+
+#[derive(Debug, Clone)]
+pub struct TxAddrData {
+    pub tx_type: String,
+    pub tx_in: HashMap<String, f64>,
+    pub tx_out: HashMap<String, f64>,
+}
+
+pub trait BlockStore {
+    fn get_block_from_hash(&self, hash: &str) -> Result<Option<Block>>;
+    fn get_block_hash(&self, height: i64) -> Result<Option<String>>;
+    fn get_block_hash_for_tx(&self, tx_hash: &str) -> Result<Option<String>>;
+    fn get_block_for_tx(&self, tx_hash: &str) -> Result<Option<Block>>;
+    fn get_block_from_height(&self, height: i64) -> Result<Option<Block>>;
+    fn get_tx_from_hash(&self, hash: &str) -> Result<Option<Transaction>>;
+    fn get_tx_addr_data_from_hash(&self, hash: &str) -> Result<Option<TxAddrData>>;
 }
 
 pub struct RocksBlockStore<'a> {

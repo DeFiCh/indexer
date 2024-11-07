@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-#[cfg(feature = "legacy-rocks")]
-pub mod rocks;
 #[cfg(feature = "legacy-sqlite-v1")]
 pub mod sqlite_v1;
 

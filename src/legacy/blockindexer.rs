@@ -1,7 +1,7 @@
 use rust_rocksdb::WriteBatch;
 use tracing::info;
 
-use crate::db::rocks::{encode_height, rocks_compact_db, rocks_open_db, RocksBlockStore};
+use crate::db::{encode_height, rocks_compact_db, rocks_open_db, RocksBlockStore};
 use crate::dfiutils::CliDriver;
 use crate::lang::{Error, Result};
 
@@ -45,7 +45,7 @@ pub fn index_from_cli() -> Result<()> {
 
         if do_index {
             let hash = cli.get_block_hash(i)?;
-            let block_details = cli.get_block(&hash, Some(4))?;
+            let block_details = cli.get_block(&hash, Some(4))?.json::<serde_json::Value>()?;
             let k1 = "b/h/".to_owned() + &encode_height(i);
             let k2 = "b/x/".to_owned() + &hash;
 

@@ -1,7 +1,10 @@
 use crate::db;
 use crate::dfiutils;
 use crate::lang;
+use crate::logparse;
 use crate::models;
+use crate::models::LogIcxCalcData;
+use crate::models::LogSwapData;
 use clap::Parser;
 use db::{
     sqlite_begin_tx, sqlite_commit_and_begin_tx, sqlite_commit_tx, sqlite_create_index_factory_v2,
@@ -10,7 +13,7 @@ use db::{
 use dfiutils::{extract_all_dfi_addresses, token_id_to_symbol_maybe, CliDriver};
 use lang::OptionExt;
 use lang::Result;
-use models::{Block, IcxLogData, IcxTxSet, TStr, TxType};
+use models::{Block, IcxTxSet, LogIcxData, TStr, TxType};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::BufRead;
@@ -29,8 +32,12 @@ pub struct IndexArgs {
     // it will automatically be decompressed on the fly.
     #[arg(long, default_value = "data/debug.log.gz")]
     pub defid_log_path: String,
-    #[arg(long, default_value = "claim_tx")]
-    pub defid_log_matcher: String,
+    #[arg(long, default_value = "ICX:")]
+    pub log_icx_matcher: String,
+    #[arg(long, default_value = "ICXCalc:")]
+    pub log_icx_calc_matcher: String,
+    #[arg(long, default_value = "SwapResult:")]
+    pub log_swap_matcher: String,
     #[arg(short = 's', long, default_value_t = 0)]
     pub start_height: i64,
     #[arg(short = 'e', long, default_value_t = 2_000_000)]
@@ -49,8 +56,6 @@ pub fn run(args: &IndexArgs) -> Result<()> {
         false => Some(args.defid_log_path.as_str()),
     };
     let enable_addr_graph = args.enable_graph_table;
-    let defid_log_matcher = args.defid_log_matcher.as_str();
-
     let start_height = args.start_height;
     let end_height = args.end_height;
 
@@ -59,33 +64,33 @@ pub fn run(args: &IndexArgs) -> Result<()> {
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, std::sync::Arc::clone(&quit))?;
 
-    let mut icx_data_map = HashMap::<TStr, IcxLogData>::default();
+    let mut icx_data_map: HashMap<TStr, LogIcxData> = HashMap::new();
+    let mut icx_calc_data_map: HashMap<Rc<str>, LogIcxCalcData> = HashMap::new();
+    let mut swap_data_map: HashMap<TStr, LogSwapData> = HashMap::new();
 
     if let Some(defid_log_path) = defid_log_path {
-        let file = std::fs::File::open(defid_log_path)?;
-        let mut reader: Box<dyn BufRead> = if defid_log_path.ends_with(".gz") {
-            Box::new(std::io::BufReader::new(flate2::read::GzDecoder::new(file)))
-        } else {
-            Box::new(std::io::BufReader::new(file))
-        };
+        info!("ingesting log file: {}", defid_log_path);
 
-        let mut line_buffer = String::new();
-        while reader.read_line(&mut line_buffer)? != 0 {
-            if line_buffer.contains(defid_log_matcher) {
-                // parse the line only on the valid json
-                if let Some(json_start) = line_buffer.find('{') {
-                    let json_str = &line_buffer[json_start..];
-                    if let Ok(icx_data) = serde_json::from_str::<IcxLogData>(json_str) {
-                        icx_data_map.insert(icx_data.claim_tx.clone(), icx_data);
-                    } else {
-                        error!("json parse failure: {}", json_str);
-                    }
-                }
-            }
-            line_buffer.clear();
-        }
+        let maps = logparse::process_log_file(
+            defid_log_path,
+            args.log_icx_matcher.as_str(),
+            args.log_icx_calc_matcher.as_str(),
+            args.log_swap_matcher.as_str(),
+        )?;
 
-        info!("icx log file entries: {}", icx_data_map.len());
+        icx_data_map = maps.0;
+        icx_calc_data_map = maps.1;
+        swap_data_map = maps.2;
+
+        info!(
+            "log file ingested:\n\
+            \tICX entries:         {}\n\
+            \tICX calc entries:    {}\n\
+            \tSwap result entries: {}",
+            icx_data_map.len(),
+            icx_calc_data_map.len(),
+            swap_data_map.len()
+        );
     }
 
     let mut cli = CliDriver::with_cli_path(args.defi_cli_path.clone());

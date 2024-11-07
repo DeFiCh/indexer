@@ -132,13 +132,33 @@ pub struct ScriptPubKey {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct IcxLogData {
+pub struct LogIcxData {
     pub order_tx: TStr,
     pub offer_tx: TStr,
     pub dfchtlc_tx: TStr,
     pub claim_tx: TStr,
     pub address: TStr,
     pub amount: TStr,
+}
+
+//  {"calc_type":"CICXMakeOfferMessage","calc_tx":"8f17836797c93e13b80c36dbade8ac0e8b4b7a4a390aa6769a64705bd3683f07","calc_start_amount":"0.00015000","calc_fee_per_btc":"0.00300000","calc_pool_dfi_per_btc":"12294.82047387","calc_taker_fee_in_btc":"0.00000045","calc_taker_fee_in_dfi":"0.00553266"}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LogIcxCalcData {
+    pub calc_type: TStr,
+    pub calc_tx: TStr,
+    pub calc_start_amount: TStr,
+    pub calc_fee_per_btc: TStr,
+    pub calc_pool_dfi_per_btc: TStr,
+    pub calc_taker_fee_in_btc: TStr,
+    pub calc_taker_fee_in_dfi: TStr,
+}
+
+// 2024-11-05T09:31:59Z SwapResult: {"height":894004,"txid":"99c64a70b2632a30d4ce20d9bcce3962945c8a6afd8fa547bf26a290b268bcde","destination":"dbdztbUBcNhDzG2NCiCVKXBZgQXybi8xvj","result":"0.02239840@1"}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LogSwapData {
+    pub txid: TStr,
+    pub destination: TStr,
+    pub result: TStr,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

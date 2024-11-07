@@ -12,6 +12,7 @@ mod graphwalker;
 mod icxanalyzer;
 mod icxseq;
 mod lang;
+mod logparse;
 mod models;
 mod spath;
 mod sqliteindexer;
@@ -44,6 +45,7 @@ fn main_fallible() -> Result<()> {
         Cmd::GraphDot(a) => graphdot::run(a)?,
         Cmd::ShortestPath(a) => spath::run(a)?,
         Cmd::GraphPath(a) => gpath::run(a)?,
+        Cmd::LogParseCheck(a) => logparse::run(a)?,
     }
     Ok(())
 }

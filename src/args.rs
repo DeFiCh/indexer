@@ -31,7 +31,7 @@ pub enum Cmd {
         #[arg(long = "in")]
         in_file: String,
     },
-    /// Analyze ICX claims and every address involved in the way 
+    /// Analyze ICX claims and every address involved in the way
     /// up until the swap of the claims
     #[command(name = "icxanalyze")]
     IcxAnalyze(crate::icxanalyzer::ICXAnalyzeArgs),
@@ -39,7 +39,7 @@ pub enum Cmd {
     #[command(name = "icxseq")]
     IcxSequence(crate::icxseq::IcxSequenceArgs),
     /// Construct the full graph and output it to a file
-    /// so the graph can loaded in memory and reused directly. 
+    /// so the graph can loaded in memory and reused directly.
     #[command(name = "graph")]
     Graph(crate::grapher::GrapherArgs),
     /// Load and explore full graph
@@ -54,6 +54,9 @@ pub enum Cmd {
     /// Find all paths with exclusions
     #[command(name = "gpath")]
     GraphPath(crate::gpath::GraphPathArgs),
+    /// Find all paths with exclusions
+    #[command(name = "logparsecheck")]
+    LogParseCheck(crate::logparse::LogParseArgs),
 }
 
 pub fn verbosity_to_level(verbosity: u8, min: Option<u8>) -> Level {

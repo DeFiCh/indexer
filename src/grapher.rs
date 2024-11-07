@@ -2,16 +2,16 @@ use crate::db::SqliteBlockStore;
 use crate::lang::Result;
 use anyhow::Context;
 use clap::Parser;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use tracing::{debug, error, info};
 
 #[derive(Parser, Debug)]
 pub struct GrapherArgs {
     #[arg(long, default_value = "data/index.sqlite")]
     pub sqlite_path: String,
-    #[arg(long, default_value = "data/graph.json")]
+    #[arg(long, default_value = "data/graph.bin")]
     pub graph_data_path: String,
-    #[arg(long, default_value = "data/graph.meta.json")]
+    #[arg(long, default_value = "data/graph.meta.bin")]
     pub graph_meta_path: String,
     #[arg(short = 's', long, default_value_t = 0)]
     pub start_height: i64,
@@ -46,21 +46,39 @@ pub fn run(args: &GrapherArgs) -> Result<()> {
         txiter += 1;
         let tx = tx?;
 
-        let tx_ins = tx
-            .tx_in
-            .iter()
-            .map(|x| x.0)
-            .cloned()
-            .chain(tx.dvm_in.iter().cloned())
-            .collect::<HashSet<_>>();
+        fn combine_addrs_with_multi_sig<'a, T1, T2>(
+            addresses: T1,
+            dvm_addresses: T2,
+        ) -> HashSet<String>
+        where
+            T1: Iterator<Item = &'a str>,
+            T2: Iterator<Item = &'a str>,
+        {
+            let mut set = HashSet::new();
+            for addr in addresses {
+                if addr.contains('+') {
+                    // Multi-sig, we include each of them for the graph
+                    for part in addr.split('+') {
+                        set.insert(part.to_owned());
+                    }
+                } else {
+                    set.insert(addr.to_owned());
+                }
+            }
+            for dvm_addr in dvm_addresses {
+                set.insert(dvm_addr.to_owned());
+            }
+            set
+        }
 
-        let tx_outs = tx
-            .tx_out
-            .iter()
-            .map(|x| x.0)
-            .cloned()
-            .chain(tx.dvm_out.iter().cloned())
-            .collect::<HashSet<_>>();
+        let tx_ins = combine_addrs_with_multi_sig(
+            tx.tx_in.keys().map(|s| s.as_str()),
+            tx.dvm_in.iter().map(|s| s.as_str()),
+        );
+        let tx_outs = combine_addrs_with_multi_sig(
+            tx.tx_out.keys().map(|s| s.as_str()),
+            tx.dvm_out.iter().map(|s| s.as_str()),
+        );
 
         // Create nodes for any new addresses
         for addr in tx_ins.iter().chain(tx_outs.iter()) {

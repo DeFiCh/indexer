@@ -92,6 +92,16 @@ pub fn run(args: &IndexArgs) -> Result<()> {
     };
 
     let sconn = &sql_store.conn;
+    for (name, _) in sqlite_create_index_factory_v2(sconn) {
+        if quit.load(std::sync::atomic::Ordering::Relaxed) {
+            info!("int: early exit indexes");
+            break;
+        }
+        info!("drop index: {}..", name);
+        let q = format!("DROP INDEX IF EXISTS {}", name);
+        sconn.execute(&q, [])?;
+    }
+
     let mut stmts = sqlite_get_stmts_v2(sconn)?;
     sqlite_begin_tx(sconn)?;
 
@@ -159,8 +169,7 @@ pub fn run(args: &IndexArgs) -> Result<()> {
             let mut swap_amt = empty();
 
             match tx_type {
-                //  Some(TxType::CompositeSwap) not enabled < 2m.
-                Some(TxType::PoolSwap) => {
+                Some(TxType::PoolSwap) | Some(TxType::CompositeSwap) => {
                     let swap_data = &tx.vm.as_ref().ok_or_err()?.msg;
                     let swap_data: models::PoolSwapMsg = serde_json::from_value(swap_data.clone())?;
                     swap_from = token_id_to_symbol_maybe(&swap_data.from_token).to_string();

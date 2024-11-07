@@ -317,6 +317,7 @@ pub struct AccountToUtxosMsg {
 
 // "vm":{"vmtype":"dvm","txtype":"PoolSwap","msg":{"fromAddress":"8J6KKxHQAWDJDR1PQfC46ocgmxTvtLLc6R","fromAmount":9.0,"fromToken":"0","maxPrice":0.00002531,"maxPriceHighPrecision":"0.00002531","toAddress":"8eG9Pe1wQnWZuXD5NRr3QaxDex9RJ99fd5","toToken":"2"}}}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[serde(rename_all = "camelCase")]
 pub struct PoolSwapMsg {
     pub from_address: TStr,
     pub to_address: TStr,

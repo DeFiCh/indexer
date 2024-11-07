@@ -24,7 +24,10 @@ pub struct IndexArgs {
     pub defi_cli_path: String,
     #[arg(long, default_value = "data/index.sqlite")]
     pub sqlite_path: String,
-    #[arg(long, default_value = "data/debug.log")]
+    // The path to the debug.log file from defid.
+    // This can be both gzipped or raw file. If the file is gzipped
+    // it will automatically be decompressed on the fly.
+    #[arg(long, default_value = "data/debug.log.gz")]
     pub defid_log_path: String,
     #[arg(long, default_value = "claim_tx")]
     pub defid_log_matcher: String,
@@ -60,7 +63,11 @@ pub fn run(args: &IndexArgs) -> Result<()> {
 
     if let Some(defid_log_path) = defid_log_path {
         let file = std::fs::File::open(defid_log_path)?;
-        let mut reader = std::io::BufReader::new(file);
+        let mut reader: Box<dyn BufRead> = if defid_log_path.ends_with(".gz") {
+            Box::new(std::io::BufReader::new(flate2::read::GzDecoder::new(file)))
+        } else {
+            Box::new(std::io::BufReader::new(file))
+        };
 
         let mut line_buffer = String::new();
         while reader.read_line(&mut line_buffer)? != 0 {

@@ -1,12 +1,12 @@
 use crate::lang;
 use crate::models;
+use crate::models::LogEntry;
+use crate::models::LogEntryMap;
 use crate::models::LogIcxCalcData;
 use crate::models::LogSwapData;
 use clap::Parser;
-
 use lang::Result;
-use models::{LogIcxData, TStr};
-use std::collections::HashMap;
+use models::LogIcxData;
 use std::io::BufRead;
 use tracing::info;
 use tracing::warn;
@@ -37,23 +37,28 @@ pub fn run(args: &LogParseArgs) -> Result<()> {
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, std::sync::Arc::clone(&quit))?;
 
+    let mut log_entry_map = LogEntryMap::new();
+
     info!("ingesting log file: {}", defid_log_path);
 
-    let (icx_data_map, icx_calc_data_map, swap_data_map) = process_log_file(
+    process_log_file(
         defid_log_path,
         args.log_icx_matcher.as_str(),
         args.log_icx_calc_matcher.as_str(),
         args.log_swap_matcher.as_str(),
+        &mut log_entry_map,
     )?;
 
     info!(
         "log file ingested:\n\
-        \tICX entries:         {}\n\
-        \tICX calc entries:    {}\n\
-        \tSwap result entries: {}",
-        icx_data_map.len(),
-        icx_calc_data_map.len(),
-        swap_data_map.len()
+        \tTotal transactions:     {}\n\
+        \tTotal ICX entries:      {}\n\
+        \tTotal ICX calc entries: {}\n\
+        \tTotal Swap entries:     {}",
+        log_entry_map.data.len(),
+        log_entry_map.icx_count,
+        log_entry_map.icx_calc_count,
+        log_entry_map.swap_count,
     );
 
     Ok(())
@@ -64,15 +69,8 @@ pub fn process_log_file(
     log_icx_matcher: &str,
     log_icx_calc_matcher: &str,
     log_swap_matcher: &str,
-) -> Result<(
-    HashMap<TStr, LogIcxData>,
-    HashMap<TStr, LogIcxCalcData>,
-    HashMap<TStr, LogSwapData>,
-)> {
-    let mut icx_data_map = HashMap::<TStr, LogIcxData>::default();
-    let mut icx_calc_data_map = HashMap::<TStr, LogIcxCalcData>::default();
-    let mut swap_data_map = HashMap::<TStr, LogSwapData>::default();
-
+    combined_data: &mut LogEntryMap,
+) -> Result<()> {
     let file = std::fs::File::open(defid_log_path)?;
     let mut reader: Box<dyn BufRead> = if defid_log_path.ends_with(".gz") {
         Box::new(std::io::BufReader::new(flate2::read::GzDecoder::new(file)))
@@ -101,17 +99,32 @@ pub fn process_log_file(
         match () {
             _ if line_buffer.contains(log_icx_matcher) => {
                 if let Some(data) = parse_json_line::<LogIcxData>(&line_buffer) {
-                    icx_data_map.insert(data.claim_tx.clone(), data);
+                    let entry = combined_data
+                        .data
+                        .entry(data.claim_tx.clone())
+                        .or_insert_with(LogEntry::new);
+                    entry.icx_data = Some(data);
+                    combined_data.icx_count += 1;
                 }
             }
             _ if line_buffer.contains(log_icx_calc_matcher) => {
                 if let Some(data) = parse_json_line::<LogIcxCalcData>(&line_buffer) {
-                    icx_calc_data_map.insert(data.calc_tx.clone(), data);
+                    let entry = combined_data
+                        .data
+                        .entry(data.calc_tx.clone())
+                        .or_insert_with(LogEntry::new);
+                    entry.icx_calc_data = Some(data);
+                    combined_data.icx_calc_count += 1;
                 }
             }
             _ if line_buffer.contains(log_swap_matcher) => {
                 if let Some(data) = parse_json_line::<LogSwapData>(&line_buffer) {
-                    swap_data_map.insert(data.txid.clone(), data);
+                    let entry = combined_data
+                        .data
+                        .entry(data.txid.clone())
+                        .or_insert_with(LogEntry::new);
+                    entry.swap_data = Some(data);
+                    combined_data.swap_count += 1;
                 }
             }
             _ => {}
@@ -119,5 +132,5 @@ pub fn process_log_file(
         line_buffer.clear();
     }
 
-    Ok((icx_data_map, icx_calc_data_map, swap_data_map))
+    Ok(())
 }

@@ -1,3 +1,6 @@
+// WIP file. Remove on finish
+#![allow(dead_code)]
+
 use crate::db::{SqliteBlockStore, TxRow};
 use crate::lang::Result;
 use crate::models::TxType;

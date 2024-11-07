@@ -1,3 +1,6 @@
+// WIP file. Remove on finish
+#![allow(unused_variables)]
+
 use std::collections::HashSet;
 
 use crate::args::process_list_args_with_file_paths;

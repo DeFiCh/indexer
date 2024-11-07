@@ -1,3 +1,6 @@
+// WIP file. Remove on finish
+#![allow(unused_variables)]
+
 use crate::{db::SqliteBlockStore, graphutils, lang::Result, models::TxType};
 use clap::Parser;
 use tracing::{debug, error, info, trace};
@@ -39,6 +42,8 @@ pub struct IcxSequenceArgs {
     pub graph_mark_addr: Vec<String>,
 }
 
+// WIP file. Remove on finish
+#[allow(unreachable_code)]
 pub fn run(args: &IcxSequenceArgs) -> Result<()> {
     debug!("args: {:?}", args);
 

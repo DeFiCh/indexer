@@ -1,10 +1,9 @@
 use crate::db;
 use crate::dfiutils;
 use crate::lang;
-use crate::logparse;
+use crate::logparse::process_log_file;
 use crate::models;
-use crate::models::LogIcxCalcData;
-use crate::models::LogSwapData;
+use crate::models::LogEntryMap;
 use clap::Parser;
 use db::{
     sqlite_begin_tx, sqlite_commit_and_begin_tx, sqlite_commit_tx, sqlite_create_index_factory_v2,
@@ -13,7 +12,7 @@ use db::{
 use dfiutils::{extract_all_dfi_addresses, token_id_to_symbol_maybe, CliDriver};
 use lang::OptionExt;
 use lang::Result;
-use models::{Block, IcxTxSet, LogIcxData, TStr, TxType};
+use models::{Block, IcxTxSet, TxType};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -63,32 +62,29 @@ pub fn run(args: &IndexArgs) -> Result<()> {
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGINT, std::sync::Arc::clone(&quit))?;
 
-    let mut icx_data_map: HashMap<TStr, LogIcxData> = HashMap::new();
-    let mut icx_calc_data_map: HashMap<Rc<str>, LogIcxCalcData> = HashMap::new();
-    let mut swap_data_map: HashMap<TStr, LogSwapData> = HashMap::new();
+    let mut log_entry_map = LogEntryMap::new();
 
     if let Some(defid_log_path) = defid_log_path {
         info!("ingesting log file: {}", defid_log_path);
 
-        let maps = logparse::process_log_file(
+        process_log_file(
             defid_log_path,
             args.log_icx_matcher.as_str(),
             args.log_icx_calc_matcher.as_str(),
             args.log_swap_matcher.as_str(),
+            &mut log_entry_map,
         )?;
-
-        icx_data_map = maps.0;
-        icx_calc_data_map = maps.1;
-        swap_data_map = maps.2;
 
         info!(
             "log file ingested:\n\
-            \tICX entries:         {}\n\
-            \tICX calc entries:    {}\n\
-            \tSwap result entries: {}",
-            icx_data_map.len(),
-            icx_calc_data_map.len(),
-            swap_data_map.len()
+            \tTotal transactions:     {}\n\
+            \tTotal ICX entries:      {}\n\
+            \tTotal ICX calc entries: {}\n\
+            \tTotal Swap entries:     {}",
+            log_entry_map.data.len(),
+            log_entry_map.icx_count,
+            log_entry_map.icx_calc_count,
+            log_entry_map.swap_count,
         );
     }
 
@@ -188,16 +184,17 @@ pub fn run(args: &IndexArgs) -> Result<()> {
                     swap_amt = format!("{:.9}", &swap_data.from_amount);
                 }
                 Some(TxType::ICXClaimDFCHTLC) => {
-                    let icx_data = icx_data_map.get(&tx.txid);
-                    if let Some(icx_data) = icx_data {
-                        icx_claim_data = Some(IcxTxSet {
-                            order_tx: icx_data.order_tx.clone(),
-                            claim_tx: icx_data.claim_tx.clone(),
-                            offer_tx: icx_data.offer_tx.clone(),
-                            dfchtlc_tx: icx_data.dfchtlc_tx.clone(),
-                        });
-                        icx_addr = icx_data.address.to_string();
-                        icx_amt = icx_data.amount.to_string();
+                    if let Some(log_entry) = &log_entry_map.data.get(&tx.txid) {
+                        if let Some(icx_data) = &log_entry.icx_data {
+                            icx_claim_data = Some(IcxTxSet {
+                                order_tx: icx_data.order_tx.clone(),
+                                claim_tx: icx_data.claim_tx.clone(),
+                                offer_tx: icx_data.offer_tx.clone(),
+                                dfchtlc_tx: icx_data.dfchtlc_tx.clone(),
+                            });
+                            icx_addr = icx_data.address.to_string();
+                            icx_amt = icx_data.amount.to_string();
+                        }
                     }
                 }
                 _ => {}

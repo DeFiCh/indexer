@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use tracing::{debug, error, info};
 
 #[derive(Parser, Debug)]
-pub struct IcxAnalyzeArgs {
+pub struct IcxAnalyze2Args {
     #[arg(long, default_value = "data/index.sqlite")]
     pub sqlite_path: String,
     #[arg(short = 's', long, default_value_t = 0)]
@@ -17,7 +17,7 @@ pub struct IcxAnalyzeArgs {
     pub icx_addr: i64,
 }
 
-pub fn run(args: &IcxAnalyzeArgs) -> Result<()> {
+pub fn run(args: &IcxAnalyze2Args) -> Result<()> {
     debug!("args: {:?}", args);
 
     let quit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));

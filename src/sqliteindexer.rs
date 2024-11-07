@@ -16,10 +16,9 @@ use lang::Result;
 use models::{Block, IcxTxSet, LogIcxData, TStr, TxType};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io::BufRead;
 use std::rc::Rc;
 use tracing::debug;
-use tracing::{error, info};
+use tracing::info;
 
 #[derive(Parser, Debug)]
 pub struct IndexArgs {

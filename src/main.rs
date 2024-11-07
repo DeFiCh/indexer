@@ -10,6 +10,7 @@ mod grapher;
 mod graphutils;
 mod graphwalker;
 mod icxanalyzer;
+mod icxanalyzer2;
 mod icxseq;
 mod lang;
 mod logparse;
@@ -39,6 +40,7 @@ fn main_fallible() -> Result<()> {
             dotreducer::run(in_file)?;
         }
         Cmd::IcxAnalyze(a) => icxanalyzer::run(a)?,
+        Cmd::IcxAnalyze2(a) => icxanalyzer2::run(a)?,
         Cmd::IcxSequence(a) => icxseq::run(a)?,
         Cmd::Graph(a) => grapher::run(a)?,
         Cmd::GraphWalk(a) => graphwalker::run(a)?,

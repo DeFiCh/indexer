@@ -34,7 +34,10 @@ pub enum Cmd {
     /// Analyze ICX claims and every address involved in the way
     /// up until the swap of the claims
     #[command(name = "icxanalyze")]
-    IcxAnalyze(crate::icxanalyzer::ICXAnalyzeArgs),
+    IcxAnalyze(crate::icxanalyzer::IcxAnalyzeArgs),
+    /// ICX analysis 2
+    #[command(name = "icxanalyze2")]
+    IcxAnalyze2(crate::icxanalyzer2::IcxAnalyze2Args),
     /// Output the full ICX sequence chain
     #[command(name = "icxseq")]
     IcxSequence(crate::icxseq::IcxSequenceArgs),

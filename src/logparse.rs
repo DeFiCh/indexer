@@ -9,7 +9,7 @@ use models::{LogIcxData, TStr};
 use std::collections::HashMap;
 use std::io::BufRead;
 use tracing::info;
-use tracing::trace;
+use tracing::warn;
 
 #[derive(Parser, Debug)]
 pub struct LogParseArgs {
@@ -91,7 +91,7 @@ pub fn process_log_file(
             .and_then(|json_str| match serde_json::from_str(json_str) {
                 Ok(data) => Some(data),
                 Err(_) => {
-                    trace!("json parse failure: {}", json_str);
+                    warn!("json parse failure: {}", json_str);
                     None
                 }
             })

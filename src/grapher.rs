@@ -2,7 +2,7 @@ use crate::db::SqliteBlockStore;
 use crate::lang::Result;
 use anyhow::Context;
 use clap::Parser;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use tracing::{debug, error, info};
 
 #[derive(Parser, Debug)]
